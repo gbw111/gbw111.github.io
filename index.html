@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="gbw111 的个人主页，关注三维重建、流式重建与 AI 工程实践。"
+    />
+    <title>gbw111 | 三维重建研究生</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="gbw111 home">gbw111</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="#about">关于</a>
+        <a href="#research">方向</a>
+        <a href="#projects">项目</a>
+        <a href="#blog">博客</a>
+        <a href="#contact">联系</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="hero" aria-labelledby="hero-title">
+        <div class="hero-content">
+          <p class="eyebrow">3D Reconstruction · AI · Streaming Systems</p>
+          <h1 id="hero-title">gbw111</h1>
+          <p class="hero-lead">
+            三维重建研究生，AI 浪潮中的一员。关注三维重建、流式重建与 AI
+            工程实践，探索实时、可靠、可扩展的三维感知系统。
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="#projects">
+              <i data-lucide="folder-git-2" aria-hidden="true"></i>
+              <span>项目</span>
+            </a>
+            <a class="button secondary" href="#blog">
+              <i data-lucide="book-open" aria-hidden="true"></i>
+              <span>博客</span>
+            </a>
+            <a class="icon-button" href="https://github.com/gbw111" aria-label="GitHub">
+              <i data-lucide="github" aria-hidden="true"></i>
+            </a>
+          </div>
+        </div>
+        <div class="hero-meta" aria-label="个人方向概览">
+          <div>
+            <strong>Research</strong>
+            <span>3D Reconstruction</span>
+          </div>
+          <div>
+            <strong>Focus</strong>
+            <span>Streaming Reconstruction</span>
+          </div>
+          <div>
+            <strong>Stack</strong>
+            <span>Python · Vision · AI</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="about" class="section about-section">
+        <div class="section-heading">
+          <p class="eyebrow">About</p>
+          <h2>把研究问题做成可运行的系统</h2>
+        </div>
+        <p class="section-copy">
+          我目前围绕三维重建与流式重建方向展开学习和研究，关注从算法、数据到工程落地的完整链路。
+          在 AI 快速发展的背景下，我希望持续探索三维视觉与智能模型结合的可能性。
+        </p>
+      </section>
+
+      <section id="research" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Research Interests</p>
+          <h2>研究方向</h2>
+        </div>
+        <div class="grid three">
+          <article class="topic-card">
+            <i data-lucide="box" aria-hidden="true"></i>
+            <h3>三维重建</h3>
+            <p>关注从图像、视频或传感器数据中恢复三维结构、几何与场景表达。</p>
+          </article>
+          <article class="topic-card">
+            <i data-lucide="radio-tower" aria-hidden="true"></i>
+            <h3>流式重建</h3>
+            <p>探索在线输入、实时更新和低延迟场景建模中的算法与系统问题。</p>
+          </article>
+          <article class="topic-card">
+            <i data-lucide="brain-circuit" aria-hidden="true"></i>
+            <h3>AI for 3D</h3>
+            <p>思考 AI 模型在三维感知、表达学习、自动化实验和工程效率中的作用。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="projects" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Projects</p>
+          <h2>项目与实验</h2>
+        </div>
+        <div class="project-list">
+          <article class="project-card">
+            <div>
+              <p class="project-kicker">Coming Soon</p>
+              <h3>Streaming 3D Reconstruction Notes</h3>
+              <p>
+                后续可以放置流式重建实验、论文复现、数据处理工具或可视化结果。
+              </p>
+            </div>
+            <a href="https://github.com/gbw111" aria-label="查看 GitHub 项目">
+              <i data-lucide="arrow-up-right" aria-hidden="true"></i>
+            </a>
+          </article>
+          <article class="project-card">
+            <div>
+              <p class="project-kicker">Research</p>
+              <h3>3D Reconstruction Practice</h3>
+              <p>
+                适合整理三维重建学习路线、核心论文、实验记录和工程实现。
+              </p>
+            </div>
+            <a href="https://github.com/gbw111" aria-label="查看 GitHub 项目">
+              <i data-lucide="arrow-up-right" aria-hidden="true"></i>
+            </a>
+          </article>
+        </div>
+      </section>
+
+      <section id="blog" class="section blog-section">
+        <div class="section-heading">
+          <p class="eyebrow">Blog</p>
+          <h2>博客与笔记</h2>
+        </div>
+        <p class="section-copy">
+          这里会逐步整理三维重建、流式系统、AI 工具、论文阅读与工程实践相关内容。
+        </p>
+        <a class="button primary" href="https://gbw111.github.io/blog/">
+          <i data-lucide="rss" aria-hidden="true"></i>
+          <span>进入博客</span>
+        </a>
+      </section>
+
+      <section id="contact" class="section contact-section">
+        <div class="section-heading">
+          <p class="eyebrow">Contact</p>
+          <h2>联系方式</h2>
+        </div>
+        <div class="contact-links">
+          <a class="contact-link" href="mailto:your-email@example.com">
+            <i data-lucide="mail" aria-hidden="true"></i>
+            <span>your-email@example.com</span>
+          </a>
+          <a class="contact-link" href="https://github.com/gbw111">
+            <i data-lucide="github" aria-hidden="true"></i>
+            <span>github.com/gbw111</span>
+          </a>
+          <a class="contact-link" href="https://gbw111.github.io/blog/">
+            <i data-lucide="book-marked" aria-hidden="true"></i>
+            <span>gbw111.github.io/blog</span>
+          </a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 gbw111</span>
+      <span>3D Reconstruction · AI · Python</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
