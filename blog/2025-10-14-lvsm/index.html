@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：LVSM。" />
+    <title>LVSM | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a>
+        <a href="../../#research">方向</a>
+        <a href="../../#projects">项目</a>
+        <a href="../">博客</a>
+        <a href="../../#contact">联系</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span>返回博客</span>
+          </a>
+          <p class="eyebrow">Paper Reading · 2025-10-14</p>
+          <h1>LVSM</h1>
+          <p class="article-summary">论文阅读笔记：LVSM。</p>
+        </header>
+        <div class="article-content">
+<ul><li>[[#LVSM: A LARGE VIEW SYNTHESIS MODEL WITH MINIMAL 3D INDUCTIVE BIAS]]<ul><li>[[#Pipeline]]</li><li>[[#1. Introduction]]</li><li>[[#2. Method]]</li><li>[[#3. Experiments]]</li></ul></li></ul><h2 id="pipeline">Pipeline</h2><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-01.png" alt="Pasted image 20251014220257" /></p><h2 id="1-introduction">1. Introduction</h2><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-02.png" alt="Pasted image 20251014220247" /></p><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-03.png" alt="Pasted image 20251014220332" /></p><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-04.png" alt="Pasted image 20251014220354" /></p><h2 id="2-method">2. Method</h2><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-05.png" alt="Pasted image 20251014220434" /></p><h2 id="3-experiments">3. Experiments</h2><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-06.png" alt="Pasted image 20251014220632" /></p><p>不同的enc-dec 和 dec-only 配置下的表现，以及消融实验结果：</p><p><img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-07.png" alt="Pasted image 20251014220640" /></p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

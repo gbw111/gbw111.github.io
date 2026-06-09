@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：tttLRM。" />
+    <title>tttLRM | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a>
+        <a href="../../#research">方向</a>
+        <a href="../../#projects">项目</a>
+        <a href="../">博客</a>
+        <a href="../../#contact">联系</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span>返回博客</span>
+          </a>
+          <p class="eyebrow">Paper Reading · 2026-05-10</p>
+          <h1>tttLRM</h1>
+          <p class="article-summary">论文阅读笔记：tttLRM。</p>
+        </header>
+        <div class="article-content">
+<p><strong>==posed multi-view / streaming image-to-3DGS / fast weights as scene memory==</strong></p><p>这篇文章主要是落在 LRM / NVS 这个方向上。</p><p><img src="../../assets/blog/2026-05-10-tttlrm/attachments/figure-01.png" alt="657" /> 能看懂的pipeline：</p><pre class="text"><code>inputs &amp; rays --
+patchify &amp; linear encoder --
+input tokens --
+(
+window attention --
+K,V projection --
+update fast weights(W) --
+virtual tokens query W --
+Q projection --
+apply(W,Q) --
+)
+update virtual tokens --
+linear decoder &amp; unpatchify --
+gaussian --
+rendering --
+NVS</code></pre><p>CVPR2026 Highlight 核心竞争力：高质量的长序列<strong>新视角合成</strong> + 显式高斯表示。</p><blockquote><ul><li>优于 GS-LRM，结合 LVSM + explicit 3DGS；</li><li>TTT 替代 full attention，把 fast weights 认为是 latent memory， 解决 GS-LRM 的序列长度瓶颈也就是计算资源消耗的的问题，同时结合 LVSM 的 latent memory 与 显式的 3DGS 表示；</li><li>CUT3R/TTT3R 这些都是聚焦于长序列的点云重建，无法 photorealistic NVS。</li></ul></blockquote><p>把 分布式重建机制 引入到 feedforward 3dgs reconstruction model. 不是 per-scene，也不是按照空间分块重建，而是按照 token 进行分块重建的统一前馈式重建模型。</p><blockquote><ul><li>Merge-SfM. 并行的是 image clusters. <strong>sparse point cloud</strong></li><li>VastGaussian. 并行的是 spatial cells，最后再 cell merge 成完整的 scene. <strong>fused / global 3DGS</strong></li><li>Grendel. 并行的是 3DGS 的参数，把 GS 的优化过程拆成多 GPU 并行。<strong>global 3DGS</strong></li><li>tttLRM. 并行的是 token.</li></ul></blockquote><ul><li>fast weights 是通过 pytorch 的 DDP 机制在各个 GPU 之间保持一致的，所以是全局一致的 memory。</li><li>因为输入条件是 posed images ，所以聚合GS的时候是不需要对齐的，大家都在同一个世界坐标系里。</li><li>最后只需要一个渲染损失来惩罚两个 GPU 在 gaussian 重叠区域的不一致，同时 深度和不透明度的正则也可以减少深度错误和高斯冗余。</li><li><strong>如果输入的 pose 不够准确，那聚合后的 GS 的问题就很大了</strong></li></ul><p>==<strong>LaCT</strong>==：Large Chunk Test-Time Training</p><blockquote><ul><li>传统的 TTT 每一次都用很小的 minibatch 来更新fast weights，这就导致它的 GPU 利用效率不高而且还难处理超长序列。所以 LaCT 就是把 fast weight 的更新换成 大chunk 的形式。</li><li><em>一个 chunk 中的 所有 keys / values 一起算 loss，然后一次性更新到 fast weights，这样可以每一个 chunk 才更新一次 fast weights，可以提高GPU的利用率并且处理序列更长。</em></li><li><span class="math inline"><em>W</em> ← <em>W</em> − <em>η</em>∇<em>L</em>(<em>f</em><sub><em>W</em></sub>​(<em>k</em><sub><em>i</em></sub>​),<em>v</em><sub><em>i</em></sub>​)</span> 变成 <span class="math inline"><em>W</em> ← <em>W</em> − <em>η</em>∇∑<sub><em>i</em> ∈ <em>c</em><em>h</em><em>u</em><em>n</em><em>k</em></sub>​<em>L</em>(<em>f</em><sub><em>W</em></sub>​(<em>k</em><sub><em>i</em></sub>​),<em>v</em><sub><em>i</em></sub>​)</span></li></ul></blockquote><p>分布式 LaCT：把 token sequence 按维度拆分成不同的 shard 分派到各个GPU。每个GPU对分配来的 shard 做 fast weights update 和 GS 预测。先得到局部梯度，然后通过 pytorch ddp / all-reduce 获得全局梯度，所有 GPU 同时进行 fast weights update，这样保证全局共享一致 memory。最后不同 GPU 预测不同 GS，然后融合到一起就可以（本任务是 posed image，所以是不需要全局对齐的，直接恢复出来大家都在同一世界坐标系里）。</p><p><strong>tttLRM 的 streaming reconstruction</strong>:</p><p><img src="../../assets/blog/2026-05-10-tttlrm/attachments/figure-02.png" alt="435" /></p><ul><li>24 LaCT blocks</li><li>window attention 64 layers</li></ul><p><strong>Results:</strong></p><p><img src="../../assets/blog/2026-05-10-tttlrm/attachments/figure-03.png" alt="535" /></p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

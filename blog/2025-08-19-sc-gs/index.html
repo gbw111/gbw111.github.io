@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：SC-GS。" />
+    <title>SC-GS | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a>
+        <a href="../../#research">方向</a>
+        <a href="../../#projects">项目</a>
+        <a href="../">博客</a>
+        <a href="../../#contact">联系</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span>返回博客</span>
+          </a>
+          <p class="eyebrow">Paper Reading · 2025-08-19</p>
+          <h1>SC-GS</h1>
+          <p class="article-summary">论文阅读笔记：SC-GS。</p>
+        </header>
+        <div class="article-content">
+<p>[toc]</p><h2 id="pipeline">pipeline</h2><p><img src="../../assets/blog/2025-08-19-sc-gs/attachments/figure-01.png" alt="image-20250723153527600" /></p><h2 id="1-摘要">1. 摘要</h2><p>现在方法：逐高斯建模运动 → 模型大、轨迹乱、编辑困难。</p><p>对此提出：</p><ul><li>==sparse control points==：稀疏控制点替代逐高斯，用插值生成全场景运动（约512个点控制10w高斯）；</li><li>==ARAP loss==：保证学习到的运动具有空间连续性和局部刚性；</li><li>==motion editing==：由于显式稀疏运动表示与外观分解，模型在高保真前提下可实现用户控制的运动编辑。</li></ul><p>优势：替代逐点MLP减少冗余；效率高；可编辑。</p><h2 id="2-引言">2. 引言</h2><p>现阶段：</p><ul><li>单目动态场景：几何/外观/运动统一建模难；</li><li>NeRF 方法：渲染速度慢，内存消耗大，不可编辑（<strong>高分辨率尤为明显</strong>）；</li><li>GS 方法：显式表示 + fast rasterization ，成功用于静态场景。</li></ul><p>观察到真实场景的运动通常是<strong>稀疏、空间连续且局部刚性</strong>的。SC-GS提出：</p><ul><li><p>用可学习的稀疏控制点（约512个）来驱动3DGS；</p><ul><li>控制点与 6<span class="math inline"><em>D</em><em>o</em><em>F</em></span>（rotation + translation）关联，再通过局部插值得到密集分布的高斯运动场；</li><li>自适应改变稀疏点数量；</li></ul></li><li><p>APRP损失，促使学习到的运动具有局部刚性；</p></li><li><p>操纵控制点可以实现运动编辑。</p></li></ul><h2 id="3-相关工作">3. 相关工作</h2><p>（1）<strong>Dynamic NeRF</strong>：变形场/四维辐射场。由于光线点采样+体渲染导致计算成本大。加速方法由于低秩假设，在处理高秩动态场景时表现不好。</p><p>（2）<strong>4D-GS</strong>：3DGS+ <span class="math inline"><em>t</em></span>，帧间独立或用 MLP 学偏移，造成建模空间冗余、效率低；</p><p>（3）<strong>Deformable GS</strong>：每个高斯学习变形，有结构性但依赖额外 MLP，轨迹易发散，难编辑；</p><p>（4）<strong>3D Deformation &amp; Editing</strong>：传统方法如 Laplacian坐标、Poisson方程等强调保持几何细节，适用于网格/显式模型；最近方法多数基于NeRF，重渲染质量但依赖隐式表示，效率低、结构不可控。</p><h2 id="4-方法">4. 方法</h2><h3 id="sparse-control-points控制点表示">Sparse Control Points（控制点表示）</h3><p>SC-GS引入结构稀疏的控制点来避免显式拟合每个高斯轨迹的大计算开销。</p><p>控制点由位置 <span class="math inline"><em>p</em><sub><em>i</em></sub></span> 和感应半径 <span class="math inline"><em>o</em><sub><em>i</em></sub></span> （控制点感应半径，用于 RBF 插值权重计算）组成，数量 <span class="math inline"><em>N</em><sub><em>p</em></sub></span> 远小于高斯点数量： <span class="math display">𝒫 = {(<em>p</em><sub><em>i</em></sub>∈ℝ<sup>3</sup>,<em>o</em><sub><em>i</em></sub>∈ℝ<sup>+</sup>)},  <em>i</em> = 1, …, <em>N</em><sub><em>p</em></sub></span> 控制点之间共享一个时间感知的MLP来生成刚体运动。其实就是做一个随时间变化的连续刚体变换场，实现在任意时刻 <span class="math inline"><em>t</em></span> 查询控制点 <span class="math inline"><em>p</em><sub><em>k</em></sub></span> 的位姿。 <span class="math display"><em>Ψ</em>(<em>p</em><sub><em>i</em></sub>,<em>t</em>) → (<em>R</em><sub><em>i</em></sub><sup><em>t</em></sup>,<em>T</em><sub><em>i</em></sub><sup><em>t</em></sup>)</span></p><h3 id="dynamic-scene-rendering">Dynamic Scene Rendering</h3><p>将控制点的时间变换插值传播至所有高斯，实现动态场景渲染。</p><p>每个高斯点 <span class="math inline"><em>j</em></span> 找到其最近的 <span class="math inline"><em>K</em> = 4</span> 个控制点，记为邻接集合 <span class="math inline">𝒩<sub><em>j</em></sub></span>，根据距离通过 RBF 核函数计算插值权重： <span class="math display">$$
+w_{jk} = \frac{\exp(-\| \mu_j - p_k \|^2 / o_k^2)}{\sum_{l \in \mathcal{N}_j} \exp(-\| \mu_j - p_l \|^2 / o_l^2)}
+$$</span> 然后进行LBS位置插值与朝向插值。</p><h3 id="arap-loss">ARAP Loss</h3><p>缓解控制点轨迹优化中的局部最优问题，引导控制点运动保持“局部刚性”。</p><p>为避免连接不相关控制点，控制点 <span class="math inline"><em>p</em><sub><em>i</em></sub></span> 轨迹： <span class="math display">$$
+p_i^{\text{traj}} = \frac{1}{N_t} \left( p_i^{t_1} \oplus p_i^{t_2} \oplus \cdots \oplus p_i^{t_{N_t}} \right)
+$$</span> 选取两帧 <span class="math inline"><em>t</em><sub>1</sub>, <em>t</em><sub>2</sub></span> 估计局部刚体变换，相邻控制点 <span class="math inline"><em>p</em><sub><em>k</em></sub></span> 的运动变换： <span class="math display"><em>p</em><sub><em>k</em></sub><sup><em>t</em><sub>1</sub></sup> = <em>p</em><sub><em>k</em></sub> + <em>T</em><sub><em>k</em></sub><sup><em>t</em><sub>1</sub></sup>,  <em>p</em><sub><em>k</em></sub><sup><em>t</em><sub>2</sub></sup> = <em>p</em><sub><em>k</em></sub> + <em>T</em><sub><em>k</em></sub><sup><em>t</em><sub>2</sub></sup></span> 找出旋转 <span class="math inline"><em>R̂</em><sub><em>i</em></sub> ∈ <em>S</em><em>O</em>(3)</span> 满足局部一致性： <span class="math display"><em>R̂</em><sub><em>i</em></sub> = arg min<sub><em>R</em> ∈ <em>S</em><em>O</em>(3)</sub>∑<sub><em>k</em> ∈ 𝒩<sub><em>i</em></sub></sub><em>w</em><sub><em>i</em><em>k</em></sub> ⋅ ∥(<em>p</em><sub><em>i</em></sub><sup><em>t</em><sub>1</sub></sup>−<em>p</em><sub><em>k</em></sub><sup><em>t</em><sub>1</sub></sup>)−<em>R</em>(<em>p</em><sub><em>i</em></sub><sup><em>t</em><sub>2</sub></sup>−<em>p</em><sub><em>k</em></sub><sup><em>t</em><sub>2</sub></sup>)∥<sup>2</sup></span> 即可得到ARAP损失： <span class="math inline">ℒ<sub>arap</sub>(<em>p</em><sub><em>i</em></sub>,<em>t</em><sub>1</sub>,<em>t</em><sub>2</sub>) = ∑<sub><em>k</em> ∈ 𝒩<sub><em>i</em></sub></sub><em>w</em><sub><em>i</em><em>k</em></sub> ⋅ ∥(<em>p</em><sub><em>i</em></sub><sup><em>t</em><sub>1</sub></sup>−<em>p</em><sub><em>k</em></sub><sup><em>t</em><sub>1</sub></sup>)−<em>R̂</em><sub><em>i</em></sub>(<em>p</em><sub><em>i</em></sub><sup><em>t</em><sub>2</sub></sup>−<em>p</em><sub><em>k</em></sub><sup><em>t</em><sub>2</sub></sup>)∥<sup>2</sup></span></p><h3 id="adaptive-growth-and-pruning">Adaptive Growth and Pruning</h3><p>固定控制点无法兼顾动/静态区域：静态区域控制点过密，浪费资源；动态区域控制点稀疏，运动拟合能力不足。（==SD-GS稠密化的出发点和这个一样==）</p><p>**裁剪：**每个控制点对其邻接高斯的影响权重总和若长期趋近于零，说明其无实际贡献 → 可移除。</p><ul><li>计算范围内所有 <span class="math inline"><em>w</em><sub><em>j</em><em>k</em></sub></span> 加权渲染梯度，如果平均梯度低于阈值，或被覆盖度极低，则裁剪该点。</li></ul><p>**生长：**对高渲染误差区域，如果没被有效控制点覆盖，则在该区域新建控制点：</p><ul><li>新控制点位置：梯度峰值处</li><li>初始参数：<ul><li>位置、半径由梯度局部高斯插值得到</li><li>刚体变换通过邻域控制点线性插值初始化</li></ul></li></ul><h3 id="motion-editing">Motion Editing</h3><p>根据控制点在不同时间的轨迹<strong>构建控制图</strong>，将轨迹相似的控制点连接为边，避免基于单帧位置建立的非物理连接。在图上进行运动编辑时，用户选定若干控制点位置作为 handle 点，并固定变形后的坐标。</p><p>整个控制图根据 ARAP 进行优化，在保持局部刚性（<span class="math inline"><em>R̂</em><sub><em>i</em></sub></span>）的前提下传播变形，使非约束点自然跟随变形。</p><p>目标函数： <span class="math inline">$E(\mathcal{P}') = \sum_{i=1}^{N_p} \sum_{j \in \mathcal{N}_i} w_{ij} \cdot \left\| (p_i' - p_j') - \hat{R}_i (p_i - p_j) \right\|^2$</span></p><p>优化后控制点变换可表示为刚体变换（旋转 <span class="math inline"><em>R̂</em><sub><em>i</em></sub></span>，平移 <span class="math inline"><em>T̂</em><sub><em>i</em></sub> = <em>p</em><sub><em>i</em></sub>′ − <em>p</em><sub><em>i</em></sub></span>），替换高斯轨迹中的控制项，实现高斯的运动变形与新序列合成。</p><h2 id="5-结论">5. 结论</h2><p>提出控制点和变形MLP实现高质量动态重建并能够进行运动编辑。但是有以下局限：</p><ul><li>容易受到不准确相机位姿的影响；</li><li>处理镜面反射能力差；</li><li>对于模糊问题有待进一步优化。</li></ul><h2 id="补充">补充</h2><h3 id="lbslinear-blend-skinning">LBS（Linear Blend Skinning）</h3><p><strong>目的</strong>：将控制点的刚体变换（旋转和平移）传播给高斯点，生成时变位置与朝向。</p><p><strong>位置插值</strong>：将高斯点转换到控制点局部坐标 → 施加旋转 → 回到世界坐标并加平移。</p><blockquote><p><span class="math inline"><em>μ</em><sub><em>j</em></sub></span>：高斯点初始位置</p><p><span class="math inline"><em>p</em><sub><em>k</em></sub></span>：控制点位置</p><p><span class="math inline"><em>R</em><sub><em>k</em></sub><sup><em>t</em></sup>, <em>T</em><sub><em>k</em></sub><sup><em>t</em></sup></span>：控制点在时刻 t 的刚体变换</p><p><span class="math inline"><em>w</em><sub><em>j</em><em>k</em></sub></span>：插值权重，由 RBF 核函数计算，满足 <span class="math inline">∑<em>w</em><sub><em>j</em><em>k</em></sub> = 1</span></p></blockquote><p><span class="math display"><em>μ</em><sub><em>j</em></sub><sup><em>t</em></sup> = ∑<sub><em>k</em> ∈ 𝒩<sub><em>j</em></sub></sub><em>w</em><sub><em>j</em><em>k</em></sub>[<em>R</em><sub><em>k</em></sub><sup><em>t</em></sup>(<em>μ</em><sub><em>j</em></sub>−<em>p</em><sub><em>k</em></sub>)+<em>p</em><sub><em>k</em></sub>+<em>T</em><sub><em>k</em></sub><sup><em>t</em></sup>]</span></p><p>**朝向插值（四元数）：**将控制点旋转插值后施加于高斯方向。</p><blockquote><p><span class="math inline"><em>q</em><sub><em>j</em></sub></span>：高斯初始朝向四元数</p><p><span class="math inline"><em>r</em><sub><em>k</em></sub><sup><em>t</em></sup></span>：控制点的旋转四元数</p><p><span class="math inline">⊗</span>：四元数乘法</p></blockquote><p><span class="math display"><em>q</em><sub><em>j</em></sub><sup><em>t</em></sup> = (∑<sub><em>k</em> ∈ 𝒩<sub><em>j</em></sub></sub><em>w</em><sub><em>j</em><em>k</em></sub>⋅<em>r</em><sub><em>k</em></sub><sup><em>t</em></sup>) ⊗ <em>q</em><sub><em>j</em></sub></span></p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

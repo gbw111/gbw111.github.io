@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：FILT3R。" />
+    <title>FILT3R | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a>
+        <a href="../../#research">方向</a>
+        <a href="../../#projects">项目</a>
+        <a href="../">博客</a>
+        <a href="../../#contact">联系</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span>返回博客</span>
+          </a>
+          <p class="eyebrow">Paper Reading · 2026-04-22</p>
+          <h1>FILT3R</h1>
+          <p class="article-summary">论文阅读笔记：FILT3R。</p>
+        </header>
+        <div class="article-content">
+<p><img src="../../assets/blog/2026-04-22-filt3r/attachments/figure-01.png" alt="607" /></p><p>==<strong>CUT3R-followup；Training-free；</strong>==</p><p>跳过几何空间，在 latent belief state 上做滤波。本质上是一个 online state fusion layer，把 persistent state 写成 Kalman 递推。在 latent manifold 优化，控制 <span class="math inline"><em>S</em><sub><em>t</em></sub></span> 的更新速率，改变 decoder 看到的 scene belief，从而减少位姿漂移。</p><p>把 persistent-state 认为是 belief state, 把 decoder 产生的 candidate state 认为是 noisy measurement，于是得到 latent 空间的状态传播方程： <span class="math display"><strong>s</strong><sub><em>t</em></sub> = <strong>s</strong><sub><em>t</em> − 1</sub> + <strong>w</strong><sub><em>t</em></sub>,   <strong>w</strong><sub><em>t</em></sub> ∼ 𝒩(<strong>0</strong>,<strong>Q</strong><sub><em>t</em></sub>)</span> <span class="math display">$$\tilde{\mathbf{s}}_t = \mathbf{s}_t + \mathbf{v}_t,\qquad \mathbf{v}_t\sim\mathcal{N}(\mathbf{0},\mathbf{R})$$</span></p><p><img src="../../assets/blog/2026-04-22-filt3r/attachments/figure-02.png" alt="580" /></p><p>真正滤波的是 state token，<span class="math inline"><em>s</em><sub><em>t</em></sub> = <em>s</em><sub><em>t</em> − 1</sub> + <em>k</em><sub><em>t</em></sub> ⊙ (<em>s</em>′<sub><em>t</em></sub>−<em>s</em><sub><em>t</em> − 1</sub>)</span> ，对于得到的候选 <span class="math inline"><em>s</em>′<sub><em>t</em></sub></span> 通过滤波来判断应该新增多少新观测。是在 <span class="math inline"><em>s</em><sub><em>t</em> − 1</sub></span> 与 <span class="math inline"><em>s</em>′<sub><em>t</em></sub></span> 的增量上做滤波。先用 <span class="math inline"><em>s</em>′<sub><em>t</em></sub></span> 与 <span class="math inline"><em>s</em>′<sub><em>t</em> − 1</sub></span> 来看这次的变化有多大， 不过还会和一个 ema 基线做商：<span class="math inline">$g_{t,i} = \frac{\Delta_{t,i}}{\Delta_\text{EMA}}$</span> 。把这个相对变化通过 sigmoid 映射成 process noise <span class="math inline"><em>q</em><sub><em>t</em>, <em>i</em></sub></span>，每个 token 维护一个方差 <span class="math inline"><em>p</em><sub><em>t</em>, <em>i</em></sub></span> 先根据 process noise 预测此刻方差，然后计算卡尔曼增益，<strong>根据增益选择性吸收 candidate state 的增量，并且更新这个 token 的不确定度。</strong></p><p>CUT3R 就相当于 <span class="math inline"><em>k</em><sub><em>t</em></sub> = 1</span>。TTT3R 的 gate 是一个启发式的设计，不稳定。FILT3R 会根据历史的变化量，控制每次的更新幅度，如果已经很久都是稳定的，那它改变也会很克制，出现跳变才会短期快速更新一下。</p><h3 id="results">Results</h3><p>3DR：==长序列下，序列越长优势越大。== Point3R 在 NRGBD 上能好一些，但是再长就 OOM 了。</p><p>Pose：ATEorig 只对首帧对齐，更能看出来累积漂移。看得出来 FILT3R 确实有用。</p><p><img src="../../assets/blog/2026-04-22-filt3r/attachments/figure-03.png" alt="627" /><img src="../../assets/blog/2026-04-22-filt3r/attachments/figure-04.png" alt="489" /><img src="../../assets/blog/2026-04-22-filt3r/attachments/figure-05.png" alt="337" /> 消融实验中保留相同的增益形式但取消方差传播之后，没有置信度的累积，所以增益无法在稳定区间系统性缩小，这就会让噪声不断以一样的权重加入到状态里，自然就会让漂移更大更严重。</p><p><img src="../../assets/blog/2026-04-22-filt3r/attachments/figure-06.png" /></p>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

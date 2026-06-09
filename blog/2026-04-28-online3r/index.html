@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：Online3R。" />
+    <title>Online3R | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a>
+        <a href="../../#research">方向</a>
+        <a href="../../#projects">项目</a>
+        <a href="../">博客</a>
+        <a href="../../#contact">联系</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span>返回博客</span>
+          </a>
+          <p class="eyebrow">Paper Reading · 2026-04-28</p>
+          <h1>Online3R</h1>
+          <p class="article-summary">论文阅读笔记：Online3R。</p>
+        </header>
+        <div class="article-content">
+<p>把 mast3r-slam 的主干冻结，只在测试时在线更新一组 vision prompt，让基础模型来逐步吸收当前场景的几何先验，从而缓解 sequential reconstruction 里的几何不一致与漂移。</p><blockquote><p>让 frozen geometry foundation model 在新场景中通过 online learning 适配，并用 local/global consistency 在无 GT 条件下更新 prompts。</p></blockquote><p><img src="../../assets/blog/2026-04-28-online3r/attachments/figure-01.png" alt="739" /> (1) 跑 MASt3R-SLAM 前端 当前帧和最近的 keyframe 输入 frozen MASt3R，预测当前帧/关键帧 pointmap，并估计相对位姿；MASt3R-SLAM 原本会对 keyframe pointmap 做 confidence-weighted fusion。Online3R 直接用这个 <strong>fused pointmap</strong>，因为它比单次网络预测更稳定。</p><p>(2) local consistency 更新 prompt。 新 keyframe 出现时，把上一 keyframe 已经融合好的 pointmap 当作 pseudo-GT，再让网络直接预测一次这个 keyframe 的 pointmap，用二者的 L1 距离更新 prompt。</p><blockquote><p>把多帧融合后的局部几何知识蒸馏回 MASt3R 的 prompt 条件中。</p></blockquote><p>(3) global consistency 防止局部过拟合。 随机采两个历史 keyframes，分别作为 reference 去预测同一个当前 keyframe 的几何；同一个物理 keyframe 的预测应该一致，所以对两个预测 pointmap 加 L1 约束。</p><blockquote><p>同一帧不能因为 reference 不同而变形 -- 处理 long-term consistency 的关键。</p></blockquote>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

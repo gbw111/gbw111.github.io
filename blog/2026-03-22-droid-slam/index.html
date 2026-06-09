@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：DROID-SLAM。" />
+    <title>DROID-SLAM | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a>
+        <a href="../../#research">方向</a>
+        <a href="../../#projects">项目</a>
+        <a href="../">博客</a>
+        <a href="../../#contact">联系</a>
+      </nav>
+    </header>
+
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../">
+            <i data-lucide="arrow-left" aria-hidden="true"></i>
+            <span>返回博客</span>
+          </a>
+          <p class="eyebrow">Paper Reading · 2026-03-22</p>
+          <h1>DROID-SLAM</h1>
+          <p class="article-summary">论文阅读笔记：DROID-SLAM。</p>
+        </header>
+        <div class="article-content">
+<p>把传统 SLAM 的核心（pose 和 depth）放进一个循环迭代、端到端训练的框架里，用 Dense Bundle Adjustment layer 做统一优化。它强调自己依然解 pose / depth，但把整个 SLAM 优化器神经化了。</p><p><strong>本文：</strong> 迭代更新 pose 和 pixel-level depth，dense BA 统一优化。</p><p><strong>贡献：</strong> 将网络学习到的匹配误差和 BA 几何层面的全局一致性优化统一到一个框架下，网络估计局部误差，BA 全局对齐，pose 和 depth 更新。</p><p><strong>DROID：D</strong>ifferentiable <strong>R</strong>ecurrent <strong>O</strong>ptimization-<strong>I</strong>nspired <strong>D</strong>esign, 可微的迭代&amp;启发式优化设计</p><p><strong>好在哪了：</strong> 网络做自己擅长的事——修正、预测、置信度。DBA做自己擅长的——几何优化（把局部的修正整理成全局一致的 pose + pixel-level depth 更新）。然后循环迭代。如果先训练flow测试时再把BA加进去就不稳定。</p><p>Despite training on monocular video, it can leverage stereo or RGB-D video to achieve improved performance at test time.</p><blockquote><p>SLAM:  A special form of SfM focused on accurate tracking of long-term trajectories. 概率/滤波 - 最小二乘优化 - BA - deep learning；</p><p>Visual SLAM：直接法 &amp; 间接法。直接法就是最小化两帧之间的光度误差；间接法是：关键点检测-特征点提取与匹配-三角化稀疏地图-最小化重投影误差。（<strong>直接法对弱纹理更好，但是光照敏感；间接法对于特征敏感（提取/匹配），这样就纯几何，没有网络的预测优势</strong>）。</p><p>Deep Learning SLAM: 面向子任务 &amp; 端到端。面向子任务的工作没办法处理 长序列回环以及全局BA；端到端的能处理序列和回环了但是依赖于可学习的bias，这很难泛化。（<strong>这些网络类型的，就直接预测，没什么几何的修正</strong>）</p><p><strong>本文</strong>：基于 pixel-depth ，这个就不依赖于训练集了，只要深度ok就能泛化。严格把网络和几何优化绑定，先<strong>发现几何偏差</strong>并通过<strong>网络预测修正</strong>，再借助 DBA 来把局部的修正变成全局的 pose 和 depth 的更新。</p></blockquote><p>基于 <strong>RAFT</strong> 做了<strong>两个改动：</strong></p><ul><li><p>迭代更新 光流 -&gt; pose &amp; depth;</p></li><li><p>2 frames -&gt; arbitrary frames. 这样就能多帧 pose 和 depth 就能 dense BA 了，减少漂移，但是引进了很大的计算量</p></li></ul><blockquote><p>真实世界里的 correspondence 往往不好，低纹理高动态遮挡都会搞错。GRU引入了 global context 就是为了识别&amp;拒绝错误的 correspondence。没有 confidence 就会把错误的匹配送到DBA中，全局几何就错乱了。</p></blockquote><p><strong>数据流：</strong></p><pre><code>视频帧输入
+→ dense / context features
+→ frame graph
+→ 为图中每条边算 correlation volume
+→ 用当前 pose + depth 预测 correspondence
+→ 在 correspondence 附近做 correlation lookup
+→ ConvGRU 输出 revision flow + confidence
+→ DBA 把修正变成 pose + depth 的联合更新
+→ 多次迭代
+→ frontend--局部跟踪，backend--全局优化和回环。</code></pre><p><strong>Questions：</strong></p><ol type="1"><li><p>光度重投影误差和光流估计方法各是什么？后者更好吗？ Droid用的 RAFT。</p></li><li><p>深度基系数是什么？ depth bias? 能有什么用？ Droid 的密集深度估计和优化没采用线性的深度基，而是 pixel-depth, 这有什么差别，有什么好处。</p></li><li><p>GRU是什么？</p></li><li><p>这个 context network 是怎么 work 的？</p></li></ol>
+
+        </div>
+      </article>
+    </main>
+
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>
