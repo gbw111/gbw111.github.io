@@ -37,6 +37,9 @@
           <p class="eyebrow">Paper Reading · 2025-08-26</p>
           <h1>GP-GS</h1>
           <p class="article-summary">论文阅读笔记：GP-GS。</p>
+          <div class="article-cover cover-placeholder" aria-hidden="true">
+            <span>3D/4D Reconstruction</span>
+          </div>
         </header>
         <div class="article-content">
 <h2 id="gp-gs-gaussian-processes-for-enhanced-gaussian-splatting">GP-GS: Gaussian Processes for Enhanced Gaussian Splatting</h2><h4 id="problem-setting">Problem Setting：</h4><p>​ 3DGS严重依赖SfM，Sparse View/纹理少/聚集区域的3D高斯初始化比较差，会在渲染的时候出现伪影与细节丢失。自适应密度控制（ADC）在无先验的情况下容易产生噪声分布，出现模糊重建和遮挡处理差的情况。</p><h4 id="new-idea">New Idea：</h4><p>​ 利用<strong>多输出高斯过程</strong>(multioutput Gaussian Process,MOGP)实现稀疏SfM点云的自适应和不确定性引导致密化。</p><p>​ 应用场景：复杂环境/密集物体/光照挑战</p><h4 id="contributions">Contributions：</h4><ol type="1"><li>点云致密高斯</li><li>自适应邻域采样（生成MOGP的候选输入） + 不确定性滤波（基于方差）</li><li>即插即用</li></ol><h4 id="method">Method</h4><h5 id="mogp">MOGP</h5><p>​ 给定image和depth来预测密集点云（回归的方式）。 <span class="math display"><strong>Y</strong> ∼ ℳ𝒪𝒢𝒫(<strong>m</strong>(<strong>x</strong>),<strong>K</strong>(<strong>x</strong>,<strong>x</strong><sup>′</sup>))</span> ​ 其中，<span class="math inline"><strong>x</strong><sub><em>i</em>, <em>j</em></sub> = (<em>u</em><sub><em>i</em></sub>,<em>v</em><sub><em>i</em></sub>,<em>D</em><sub><em>i</em></sub>)</span>，<span class="math inline"><strong>y</strong><sub><em>j</em></sub> = (<em>x</em><sub><em>j</em></sub>,<em>y</em><sub><em>j</em></sub>,<em>z</em><sub><em>j</em></sub>,<em>r</em><sub><em>j</em></sub>,<em>g</em><sub><em>j</em></sub>,<em>b</em><sub><em>j</em></sub>)</span>，<span class="math inline"><strong>m</strong>(<strong>x</strong>)</span> 是均值函数，<span class="math inline"><strong>K</strong>(<strong>x</strong>,<strong>x</strong><sup>′</sup>)</span> 是协方差函数。 <span class="math display">$$

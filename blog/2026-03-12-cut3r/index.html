@@ -37,6 +37,9 @@
           <p class="eyebrow">Paper Reading · 2026-03-12</p>
           <h1>CUT3R</h1>
           <p class="article-summary">论文阅读笔记：CUT3R。</p>
+          <figure class="article-cover">
+            <img src="../../assets/blog/2026-03-12-cut3r/attachments/figure-01.png" alt="" />
+          </figure>
         </header>
         <div class="article-content">
 <p><strong>Continuous Updating Transformer（CUT）</strong>：维护一个场景状态（固定大小的状态 token），新观测输入 -&gt; 直接检索记忆并更新 -&gt; 预测 pointmap + confidence map + camera pose 并把该帧信息存到记忆中。</p><p>用一个固定容量的 latent state，持续压缩并更新对世界的理解。==核心场景的记忆容量固定。==没有显式的全局对齐所以对于超长序列，还是会出现漂移的问题。</p><p>state 从一开始学习就存在，从一个空的 token 开始，被特征充斥，然后不断被压缩以及更新（state 由 768个token，每一个token768维组成）。虚拟视角查询时，只读取 state 但不更新 state，这样就不会让假视角，坏信息污染 memory。</p><p><strong>顶层数据流</strong>： New image -&gt; ViT -&gt; image tokens -&gt; 和 state tokens 做双向交互（1）把当前内容写进 state，（2）从state中读取 memory -&gt; memory 和现有观测一同进入 head 预测得到 pointmap 和 camera pose。 Virtual Pose -&gt; 读 state -&gt;预测 不可见区域。</p><p><strong>数据流伪代码：</strong></p><div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>state <span class="op">=</span> learned_register_tokens()</span>

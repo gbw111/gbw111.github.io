@@ -37,6 +37,9 @@
           <p class="eyebrow">Paper Reading · 2026-05-08</p>
           <h1>LingBot-Map</h1>
           <p class="article-summary">论文阅读笔记：LingBot-Map。</p>
+          <figure class="article-cover">
+            <img src="../../assets/blog/2026-05-08-lingbot-map/attachments/figure-01.png" alt="" />
+          </figure>
         </header>
         <div class="article-content">
 <p><strong>Feed-Forward Streaming 3D Reconstruction Model</strong></p><p>VGGT-like 工作，亮点：==**structured memory + geometric context attention</p><p>折中：SLAM 的结构先验 + Transformer 的可学习 attention。</p><p><img src="../../assets/blog/2026-05-08-lingbot-map/attachments/figure-01.png" alt="615" /></p><h2 id="0记录">0.记录</h2><h4 id="1-lingbot-map-的记忆管理机制">（1） Lingbot-Map 的记忆管理机制</h4><h2 id="1-method">1. Method</h2><p>把 SLAM 里的 anchor / local window / global map 的思想改成 Transformer 的结构化 attention memory，feed-forward streaming 3D reconstruction。依靠 Geometric Context Attention 来在推理时<strong>选择性地保留上下文。</strong>(声称可以处理 10,000+ 帧)</p><pre><code>Stage 1: train offline VGGT-like base model

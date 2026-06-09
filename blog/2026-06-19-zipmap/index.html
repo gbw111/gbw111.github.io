@@ -37,6 +37,9 @@
           <p class="eyebrow">Paper Reading · 2026-06-19</p>
           <h1>ZipMap</h1>
           <p class="article-summary">论文阅读笔记：ZipMap。</p>
+          <figure class="article-cover">
+            <img src="../../assets/blog/2026-06-19-zipmap/attachments/figure-01.png" alt="" />
+          </figure>
         </header>
         <div class="article-content">
 <p><strong>Feed forward （streaming 可选）reconstruction &amp; NVS</strong></p><blockquote><p>streaming 是 offline 而不是 online</p></blockquote><p>用 <strong>LaCT</strong> 代替 VGGT 中的 global attention，把整个图像序列压缩进 fast-weight scene state，在 <strong>O(N) 的复杂度下实现了近似 VGGT / <span class="math inline"><em>Π</em><sup>3</sup></span> 的效果。</strong></p><p><strong>线性方法中最强，性能接近复杂度平方的方法。</strong></p><h3 id="1-pipeline">1. pipeline</h3><p><img src="../../assets/blog/2026-06-19-zipmap/attachments/figure-01.png" alt="654" /> 输入：一组图像 or 视频帧，还可以选择输入 target raymap（查询 fast weights 中形成的隐式 scene representation）</p><p>输出：pose + depth + pointmap + NVS</p><pre class="text"><code>n inputs --&gt;
