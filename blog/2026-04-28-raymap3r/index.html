@@ -38,11 +38,11 @@
           <h1>RayMap3R</h1>
           <p class="article-summary">论文阅读笔记：RayMap3R。</p>
           <figure class="article-cover">
-            <img src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-01.png" alt="" />
+            <img src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-01.webp" alt="" decoding="async" fetchpriority="high" />
           </figure>
         </header>
         <div class="article-content">
-<p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-01.png" alt="743" /></p><h3 id="method">Method</h3><h4 id="dual-branch-inference">Dual-Branch Inference</h4><p>==核心观察：== 如果只给 RayMap，不给图像特征，模型往往不会重建当前帧里的动态前景，而更倾向于从 state 中恢复稳定的静态背景。</p><p>在 CUT3R streaming feed-forward reconstruction 的 inference 过程中，利用 RayMap-only prediction 的 <strong>static-scene bias 判断哪些区域是动态物体</strong>，然后<strong>抑制这些区域对 persistent state / memory 的污染</strong>。</p><blockquote><p>就相当于用 raymap static-scene bias 做 dynamic segmentation。</p></blockquote><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-02.png" alt="703" /> RayMap3R 在 warmup 之后，每帧 inference 前向包含两次 state query：一次 main query，一次 RayMap-only query。第二次 query 是辅助的 static-biased branch，用来估计 dynamic/static mask；最终 state 只更新一次，并且更新被 staticness weights 调制。</p><p>每帧要做两次 decoder-style rollout/readout，但只有 main branch 的 candidate state update 被最终用于更新；RayMap-only branch 的 state output 应该被丢弃，只保留它的 depth prediction 用于 dynamic/static discrepancy。<strong>inference 的简要流程：</strong></p><div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>state_prev <span class="op">=</span> state_feat</span>
+<p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-01.webp" alt="743" /></p><h3 id="method">Method</h3><h4 id="dual-branch-inference">Dual-Branch Inference</h4><p>==核心观察：== 如果只给 RayMap，不给图像特征，模型往往不会重建当前帧里的动态前景，而更倾向于从 state 中恢复稳定的静态背景。</p><p>在 CUT3R streaming feed-forward reconstruction 的 inference 过程中，利用 RayMap-only prediction 的 <strong>static-scene bias 判断哪些区域是动态物体</strong>，然后<strong>抑制这些区域对 persistent state / memory 的污染</strong>。</p><blockquote><p>就相当于用 raymap static-scene bias 做 dynamic segmentation。</p></blockquote><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-02.webp" alt="703" /> RayMap3R 在 warmup 之后，每帧 inference 前向包含两次 state query：一次 main query，一次 RayMap-only query。第二次 query 是辅助的 static-biased branch，用来估计 dynamic/static mask；最终 state 只更新一次，并且更新被 staticness weights 调制。</p><p>每帧要做两次 decoder-style rollout/readout，但只有 main branch 的 candidate state update 被最终用于更新；RayMap-only branch 的 state output 应该被丢弃，只保留它的 depth prediction 用于 dynamic/static discrepancy。<strong>inference 的简要流程：</strong></p><div class="sourceCode" id="cb1"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>state_prev <span class="op">=</span> state_feat</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>new_state_main, dec_main <span class="op">=</span> recurrent_rollout(state_prev, image_plus_raymap_feat, ...)</span>
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>pred_main <span class="op">=</span> head(dec_main)</span>
@@ -54,7 +54,7 @@
 <span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>alpha <span class="op">=</span> compute_staticness(pred_main.depth, pred_ray.depth, ...)</span>
 <span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>state_feat <span class="op">=</span> state_prev <span class="op">+</span> alpha <span class="op">*</span> (new_state_main <span class="op">-</span> state_prev)</span></code></pre></div><h4 id="reset-metric-alignment">Reset Metric Alignment</h4><p><strong>解决</strong>：长序列 reset 后的尺度和坐标系断裂问题</p><p><strong>问题</strong>：reset 前后，模型可能进入不同的 local metric frame，所以同一段视频前后两个 segment 的 scale、rotation、translation 可能不一致。</p><p><strong>方法</strong>：利用 repeated frame，预测 reset 前后的 pointcloud，然后估计一个 Sim(3), 把reset 后新的 segment 对齐到 reset 前的 global metric frame.</p><blockquote><p>类似于 slam 中的 submap alignment，但是不做全局优化，只是在reset边界做一个简单对齐</p></blockquote><h4 id="state-aware-smoothing">State-Aware Smoothing</h4><p><strong>解决</strong>：相机轨迹抖动和短时 pose noise</p><p><strong>方法</strong>：如果当前帧的 camera motion 很剧烈，同时 state update 也很剧烈（state 的变化幅度 <span class="math inline">||<em>Δ</em><em>s</em><sub><em>t</em></sub>||</span> ），那么当前 pose 预测更可能不稳定，需要更强 smoothing。</p><h3 id="results">Results</h3><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-03.png" alt="698" /><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-04.png" alt="732" /></p>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>state_feat <span class="op">=</span> state_prev <span class="op">+</span> alpha <span class="op">*</span> (new_state_main <span class="op">-</span> state_prev)</span></code></pre></div><h4 id="reset-metric-alignment">Reset Metric Alignment</h4><p><strong>解决</strong>：长序列 reset 后的尺度和坐标系断裂问题</p><p><strong>问题</strong>：reset 前后，模型可能进入不同的 local metric frame，所以同一段视频前后两个 segment 的 scale、rotation、translation 可能不一致。</p><p><strong>方法</strong>：利用 repeated frame，预测 reset 前后的 pointcloud，然后估计一个 Sim(3), 把reset 后新的 segment 对齐到 reset 前的 global metric frame.</p><blockquote><p>类似于 slam 中的 submap alignment，但是不做全局优化，只是在reset边界做一个简单对齐</p></blockquote><h4 id="state-aware-smoothing">State-Aware Smoothing</h4><p><strong>解决</strong>：相机轨迹抖动和短时 pose noise</p><p><strong>方法</strong>：如果当前帧的 camera motion 很剧烈，同时 state update 也很剧烈（state 的变化幅度 <span class="math inline">\(||\Delta s_t||\)</span> ），那么当前 pose 预测更可能不稳定，需要更强 smoothing。</p><h3 id="results">Results</h3><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-03.webp" alt="698" /><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-28-raymap3r/attachments/figure-04.webp" alt="732" /></p>
 
         </div>
       </article>
@@ -66,6 +66,19 @@
     </footer>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"], ["$", "$"]],
+          displayMath: [["\\[", "\\]"], ["$$", "$$"]],
+          processEscapes: true
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+        }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     <script src="../../script.js"></script>
   </body>
 </html>

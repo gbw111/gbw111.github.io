@@ -38,11 +38,29 @@
           <h1>Scal3R</h1>
           <p class="article-summary">论文阅读笔记：Scal3R。</p>
           <figure class="article-cover">
-            <img src="../../assets/blog/2026-04-13-scal3r/attachments/cover.png" alt="" />
+            <img src="../../assets/blog/2026-04-13-scal3r/attachments/cover.webp" alt="" decoding="async" fetchpriority="high" />
           </figure>
         </header>
         <div class="article-content">
-<p>==<strong>Test-Time Training</strong>==；VGGT 衍生；</p><p><strong>Scal3R：</strong> 在每个 chunk 的前向里引入一个在线更新的全局记忆（AMU的参数，hidden state），让局部几何预测本身就带着长程先验。Neural Fast-weight Memory.</p><blockquote><p><strong>VGGT-Long 的做法</strong>：把一个长序列切成 overlap chunks，每一个 chunk 独立通过 VGGT 进行局部重建，然后把这些 chunk 的重建结果进行 local sim(3) alignment。同时使用全局的特征提取与匹配，找到回环（相隔很远的帧之间的相似度很高 <span class="math inline">→</span> 认为又回到了同一地方），对于回环的 chunk 与起点 chunk 进行拼接得到 loop-centric chunk，送到 VGGT 中进行重建，再将重建结果与 两个原始的 chunk 的结果一起送到 loop-wise sim(3) alignment 中对齐。最后是把这两种对齐统一优化（借助 LM）。</p><p><strong>VGGT-Long 的问题</strong>： chunk 与 chunk 在前向预测几乎无信息交互，全局一致性只能在后端通过 Sim(3) 拼接补偿。</p></blockquote><p><strong>训练资源</strong>：32 A800 GPUs / 3 days</p><h3 id="method">Method</h3><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-13-scal3r/attachments/figure-01.png" alt="Pasted image 20260413095336" /> ==Memory 是 AMU 的参数。 hidden state==</p><h4 id="global-context-memory-gcm">Global Context Memory (GCM)</h4><blockquote><p>GCM 被插在第 4、11、17、24 个 global attention layer 之后，总新增参数约 75.55M。</p></blockquote><p><strong>lightweight</strong> / <strong>neural sub-networks</strong> that are rapidly <strong>adapted during test time</strong> / via <strong>self-supervised objectives</strong>.</p><p>GCM 由三部分组成：</p><ul><li>一个 QKV projection；</li><li>三个轻量 MLP， Adaptive Memory Units (AMUs)；</li><li>一个 output projection。</li></ul><p>现有 TTT 难以扩展到超长上下文——频繁小批量更新严重拖慢IO； Scal3R 借鉴 LaCT，<strong>把整个 chunk 内所有 token 当作一次更新单元</strong>，对 AMU 做 chunk-wise update。</p><blockquote><p>local chunk <span class="math inline">→</span> token <span class="math inline">→</span> K,V <span class="math inline">→</span> 作为当前 chunk 的上下文，自监督更新 AMU（<span class="math inline"><em>θ</em> ← <em>θ</em> − <em>η</em>∇<sub><em>θ</em></sub>​<em>L</em><sub><em>t</em><em>t</em><em>t</em></sub>​(<em>K</em>,<em>V</em>)</span>）,其中 𝜂 是由输入 token 预测的 token-wise learning rate，损失采用标准 dot-product loss。再用更新后的 AMU 去变换 query Q，输出增强后的 token。</p></blockquote><h4 id="global-context-synchronization-gcs">Global Context Synchronization (GCS)</h4><p>每个 GPU 处理一个局部的 chunk 后，现在本地根据当前 chunk 进行 AMU 更新，然后通过 all-reduce 把各 GPU 的 AMU 更新同步，然后求和广播回所有设备，这样所有 chunk 都共享到了 序列级的上下文。</p><h5 id="scal3r-属于前端增强后端还是-vggt-long"><strong>Scal3R 属于前端增强，后端还是 VGGT-Long</strong></h5><p><strong>VGGT_long:</strong> $$</p><p>{I_t}<em>{t=1}^N \to {\mathcal C_m}</em>{m=1}^M \to \text{VGGT on each }\mathcal C_m \to (\hat{\Pi}_m,\hat{D}_m,\hat{P}_m) \to \text{overlap Sim(3) align} \to \text{loop closure / pose graph} \to \text{global reconstruction}.</p><p>$$</p><p><strong>Scal3R:</strong> <span class="math display">{<em>I</em><sub><em>t</em></sub>}<sub><em>t</em> = 1</sub><sup><em>N</em></sup> → {𝒞<sub><em>m</em></sub>}<sub><em>m</em> = 1</sub><sup><em>M</em></sup> → VGGT backbone + GCM → chunk-wise TTT update on AMU → GCS across chunks → (<em>Π̂</em><sub><em>m</em></sub>,<em>D̂</em><sub><em>m</em></sub>,<em>P̂</em><sub><em>m</em></sub>) → follow VGGT-Long align/fuse → loop candidate retrieval + pose graph → global reconstruction.</span></p><h3 id="experiments">Experiments</h3><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-13-scal3r/attachments/figure-02.png" alt="755" /><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-13-scal3r/attachments/figure-03.png" alt="500" /></p>
+<p>==<strong>Test-Time Training</strong>==；VGGT 衍生；</p><p><strong>Scal3R：</strong> 在每个 chunk 的前向里引入一个在线更新的全局记忆（AMU的参数，hidden state），让局部几何预测本身就带着长程先验。Neural Fast-weight Memory.</p><blockquote><p><strong>VGGT-Long 的做法</strong>：把一个长序列切成 overlap chunks，每一个 chunk 独立通过 VGGT 进行局部重建，然后把这些 chunk 的重建结果进行 local sim(3) alignment。同时使用全局的特征提取与匹配，找到回环（相隔很远的帧之间的相似度很高 <span class="math inline">\(\to\)</span> 认为又回到了同一地方），对于回环的 chunk 与起点 chunk 进行拼接得到 loop-centric chunk，送到 VGGT 中进行重建，再将重建结果与 两个原始的 chunk 的结果一起送到 loop-wise sim(3) alignment 中对齐。最后是把这两种对齐统一优化（借助 LM）。</p><p><strong>VGGT-Long 的问题</strong>： chunk 与 chunk 在前向预测几乎无信息交互，全局一致性只能在后端通过 Sim(3) 拼接补偿。</p></blockquote><p><strong>训练资源</strong>：32 A800 GPUs / 3 days</p><h3 id="method">Method</h3><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-13-scal3r/attachments/figure-01.webp" alt="Pasted image 20260413095336" /> ==Memory 是 AMU 的参数。 hidden state==</p><h4 id="global-context-memory-gcm">Global Context Memory (GCM)</h4><blockquote><p>GCM 被插在第 4、11、17、24 个 global attention layer 之后，总新增参数约 75.55M。</p></blockquote><p><strong>lightweight</strong> / <strong>neural sub-networks</strong> that are rapidly <strong>adapted during test time</strong> / via <strong>self-supervised objectives</strong>.</p><p>GCM 由三部分组成：</p><ul><li>一个 QKV projection；</li><li>三个轻量 MLP， Adaptive Memory Units (AMUs)；</li><li>一个 output projection。</li></ul><p>现有 TTT 难以扩展到超长上下文——频繁小批量更新严重拖慢IO； Scal3R 借鉴 LaCT，<strong>把整个 chunk 内所有 token 当作一次更新单元</strong>，对 AMU 做 chunk-wise update。</p><blockquote><p>local chunk <span class="math inline">\(\to\)</span> token <span class="math inline">\(\to\)</span> K,V <span class="math inline">\(\to\)</span> 作为当前 chunk 的上下文，自监督更新 AMU（<span class="math inline">\(θ←θ−η∇_θ​L_{ttt}​(K,V)\)</span>）,其中 𝜂 是由输入 token 预测的 token-wise learning rate，损失采用标准 dot-product loss。再用更新后的 AMU 去变换 query Q，输出增强后的 token。</p></blockquote><h4 id="global-context-synchronization-gcs">Global Context Synchronization (GCS)</h4><p>每个 GPU 处理一个局部的 chunk 后，现在本地根据当前 chunk 进行 AMU 更新，然后通过 all-reduce 把各 GPU 的 AMU 更新同步，然后求和广播回所有设备，这样所有 chunk 都共享到了 序列级的上下文。</p><h5 id="scal3r-属于前端增强后端还是-vggt-long"><strong>Scal3R 属于前端增强，后端还是 VGGT-Long</strong></h5><p><strong>VGGT_long:</strong> $$</p><p>{I_t}<em>{t=1}^N \to {\mathcal C_m}</em>{m=1}^M \to \text{VGGT on each }\mathcal C_m \to (\hat{\Pi}_m,\hat{D}_m,\hat{P}_m) \to \text{overlap Sim(3) align} \to \text{loop closure / pose graph} \to \text{global reconstruction}.</p><p>$$</p><p><strong>Scal3R:</strong> <span class="math display">\[
+\{I_t\}_{t=1}^N
+\to
+\{\mathcal C_m\}_{m=1}^M
+\to
+\text{VGGT backbone + GCM}
+\to
+\text{chunk-wise TTT update on AMU}
+\to
+\text{GCS across chunks}
+\to
+(\hat{\Pi}_m,\hat{D}_m,\hat{P}_m)
+\to
+\text{follow VGGT-Long align/fuse}
+\to
+\text{loop candidate retrieval + pose graph}
+\to
+\text{global reconstruction}.
+\]</span></p><h3 id="experiments">Experiments</h3><p><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-13-scal3r/attachments/figure-02.webp" alt="755" /><img loading="lazy" decoding="async" src="../../assets/blog/2026-04-13-scal3r/attachments/figure-03.webp" alt="500" /></p>
 
         </div>
       </article>
@@ -54,6 +72,19 @@
     </footer>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"], ["$", "$"]],
+          displayMath: [["\\[", "\\]"], ["$$", "$$"]],
+          processEscapes: true
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+        }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     <script src="../../script.js"></script>
   </body>
 </html>

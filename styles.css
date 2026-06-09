@@ -691,6 +691,19 @@ h3 {
   background: #ffffff;
 }
 
+.article-content .math.display,
+.article-content mjx-container[display="true"] {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 6px 0;
+}
+
+.article-content mjx-container {
+  line-height: 1.5;
+}
+
 .article-content figcaption {
   display: none;
 }

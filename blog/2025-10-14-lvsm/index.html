@@ -38,11 +38,11 @@
           <h1>LVSM</h1>
           <p class="article-summary">论文阅读笔记：LVSM。</p>
           <figure class="article-cover">
-            <img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-01.png" alt="" />
+            <img src="../../assets/blog/2025-10-14-lvsm/attachments/figure-01.webp" alt="" decoding="async" fetchpriority="high" />
           </figure>
         </header>
         <div class="article-content">
-<ul><li>[[#LVSM: A LARGE VIEW SYNTHESIS MODEL WITH MINIMAL 3D INDUCTIVE BIAS]]<ul><li>[[#Pipeline]]</li><li>[[#1. Introduction]]</li><li>[[#2. Method]]</li><li>[[#3. Experiments]]</li></ul></li></ul><h2 id="pipeline">Pipeline</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-01.png" alt="Pasted image 20251014220257" /></p><h2 id="1-introduction">1. Introduction</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-02.png" alt="Pasted image 20251014220247" /><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-03.png" alt="Pasted image 20251014220332" /><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-04.png" alt="Pasted image 20251014220354" /></p><h2 id="2-method">2. Method</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-05.png" alt="Pasted image 20251014220434" /></p><h2 id="3-experiments">3. Experiments</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-06.png" alt="Pasted image 20251014220632" /> 不同的enc-dec 和 dec-only 配置下的表现，以及消融实验结果：</p><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-07.png" alt="Pasted image 20251014220640" /></p>
+<ul><li>[[#LVSM: A LARGE VIEW SYNTHESIS MODEL WITH MINIMAL 3D INDUCTIVE BIAS]]<ul><li>[[#Pipeline]]</li><li>[[#1. Introduction]]</li><li>[[#2. Method]]</li><li>[[#3. Experiments]]</li></ul></li></ul><h2 id="pipeline">Pipeline</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-01.webp" alt="Pasted image 20251014220257" /></p><h2 id="1-introduction">1. Introduction</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-02.webp" alt="Pasted image 20251014220247" /><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-03.webp" alt="Pasted image 20251014220332" /><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-04.webp" alt="Pasted image 20251014220354" /></p><h2 id="2-method">2. Method</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-05.webp" alt="Pasted image 20251014220434" /></p><h2 id="3-experiments">3. Experiments</h2><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-06.webp" alt="Pasted image 20251014220632" /> 不同的enc-dec 和 dec-only 配置下的表现，以及消融实验结果：</p><p><img loading="lazy" decoding="async" src="../../assets/blog/2025-10-14-lvsm/attachments/figure-07.webp" alt="Pasted image 20251014220640" /></p>
 
         </div>
       </article>
@@ -54,6 +54,19 @@
     </footer>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"], ["$", "$"]],
+          displayMath: [["\\[", "\\]"], ["$$", "$$"]],
+          processEscapes: true
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"]
+        }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
     <script src="../../script.js"></script>
   </body>
 </html>
