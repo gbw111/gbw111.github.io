@@ -42,7 +42,7 @@
           </figure>
         </header>
         <div class="article-content">
-<p><img src="../../assets/blog/2026-03-25-droid-slam-in-the-wild/attachments/figure-01.png" alt="Pasted image 20260325223314" /></p><p><strong>DROID-W 优化 DROID-SLAM 在动态/反射/模糊/未知运动体的场景的表现。</strong></p><p>在 DROID-SLAM 里加了动态不确定判断，把 BA 从只信 correspondence 改成了对动态区域自动降权的 <strong>uncertainty-aware BA</strong>，权重 <span class="math inline"><em>Σ</em><sub><em>i</em><em>j</em></sub> = diag(<em>w</em><sub><em>i</em><em>j</em></sub>)</span> 改成了 <span class="math inline">$\Sigma^{\text{uncer}}_{ij}=\mathrm{diag}\left(w_{ij}\cdot \frac{1}{u'_i}\right)$</span>，增强了对于动态区域要不要进行刚体优化的判断。</p><p>根据多视图特征不一致来判断不可信位置来改变不确定分数，做的是局部窗口内的不确定性正则。依赖 frame-to-frame alignment，如果初始化 pose 不准，不确定性也就会估错，所以<strong>只是给DROID加了一个对于动态鲁棒的模块，而不是一个全局的动态场模型</strong>。</p><p>加了 Metric3D 的单目深度先验以及深度正则，配合 weight decay 让不确定性更稳定。</p>
+<p><img loading="lazy" decoding="async" src="../../assets/blog/2026-03-25-droid-slam-in-the-wild/attachments/figure-01.png" alt="Pasted image 20260325223314" /> <strong>DROID-W 优化 DROID-SLAM 在动态/反射/模糊/未知运动体的场景的表现。</strong></p><p>在 DROID-SLAM 里加了动态不确定判断，把 BA 从只信 correspondence 改成了对动态区域自动降权的 <strong>uncertainty-aware BA</strong>，权重 <span class="math inline"><em>Σ</em><sub><em>i</em><em>j</em></sub> = diag(<em>w</em><sub><em>i</em><em>j</em></sub>)</span> 改成了 <span class="math inline">$\Sigma^{\text{uncer}}_{ij}=\mathrm{diag}\left(w_{ij}\cdot \frac{1}{u'_i}\right)$</span>，增强了对于动态区域要不要进行刚体优化的判断。</p><p>根据多视图特征不一致来判断不可信位置来改变不确定分数，做的是局部窗口内的不确定性正则。依赖 frame-to-frame alignment，如果初始化 pose 不准，不确定性也就会估错，所以<strong>只是给DROID加了一个对于动态鲁棒的模块，而不是一个全局的动态场模型</strong>。</p><p>加了 Metric3D 的单目深度先验以及深度正则，配合 weight decay 让不确定性更稳定。</p>
 
         </div>
       </article>
