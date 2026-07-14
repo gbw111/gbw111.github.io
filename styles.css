@@ -743,6 +743,15 @@ h3 {
   color: var(--muted);
 }
 
+.article-content mark {
+  padding: 0.08em 0.24em;
+  border-radius: 0.28em;
+  color: inherit;
+  background: linear-gradient(105deg, rgba(250, 204, 21, 0.28), rgba(251, 146, 60, 0.38));
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .blog-section .button {
   justify-self: start;
 }
