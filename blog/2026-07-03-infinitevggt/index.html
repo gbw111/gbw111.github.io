@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：InfiniteVGGT。" />
+    <title>InfiniteVGGT | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a><a href="../../#research">方向</a><a href="../../#projects">项目</a><a href="../">博客</a><a href="../../#contact">联系</a>
+      </nav>
+    </header>
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../"><i data-lucide="arrow-left" aria-hidden="true"></i><span>返回博客</span></a>
+          <p class="eyebrow">Paper Reading · 2026-07-03</p>
+          <h1>InfiniteVGGT</h1>
+          <p class="article-summary">论文阅读笔记：InfiniteVGGT。</p>
+          <figure class="article-cover">
+            <img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-01.webp" alt="" decoding="async" fetchpriority="high" />
+          </figure>
+        </header>
+        <div class="article-content">
+<h2 id="infinitevggt-visual-geometry-grounded-transformer-for-endless-streams">InfiniteVGGT: Visual Geometry Grounded Transformer for Endless Streams</h2><p>在 VGGT / StreamVGGT 这类 feed-forward visual geometry Transformer 上，<strong>通过 bounded KV cache 和 token-level rolling memory，使长序列流式 3D reconstruction 不再因历史 cache 无界增长而崩溃。</strong></p><blockquote><p>核心判断：<span style="background:#fff88f">InfiniteVGGT 解决 streaming Transformer 的 memory bottleneck，不是完整 SLAM 的 global consistency bottleneck</span></p></blockquote><h2 id="pipeline">0. Pipeline</h2><figure><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-01.webp" loading="lazy" decoding="async" alt="650" /><figcaption aria-hidden="true">650</figcaption></figure><blockquote><p>[!tip] InfiniteVGGT 的关键是<strong>把 StreamVGGT 的无界 causal KV cache 改成 bounded rolling memory。</strong></p></blockquote><p>单步流式输入： <span class="math display"><em>I</em><sub><em>t</em></sub> ∈ ℝ<sup><em>H</em> × <em>W</em> × 3</sup></span> 历史记忆状态： <span class="math display">𝒞<sub><em>t</em> − 1</sub> = {(<em>K</em><sub><em>t</em> − 1</sub><sup>(<em>l</em>,<em>h</em>)</sup>,<em>V</em><sub><em>t</em> − 1</sub><sup>(<em>l</em>,<em>h</em>)</sup>)}<sub><em>l</em> = 1, <em>h</em> = 1</sub><sup><em>L</em>, <em>H</em><sub><em>a</em></sub></sup></span> 单步输出： <span class="math display">(<em>g</em><sub><em>t</em></sub>,<em>D</em><sub><em>t</em></sub>,<em>P</em><sub><em>t</em></sub>,<em>T</em><sub><em>t</em></sub>,𝒞<sub><em>t</em></sub>)</span> 整体数据流：</p><pre class="text"><code>I_t
+  -&gt; Image Encoder / patch tokens
+  -&gt; causal temporal attention with KV cache C_{t-1}
+  -&gt; geometry heads: camera g_t, depth D_t, point map P_t, tracks T_t
+  -&gt; generate new K_t,V_t
+  -&gt; rolling memory pruning
+  -&gt; bounded cache C_t</code></pre><p>更数学来看： <span class="math display"><em>z</em><sub><em>t</em></sub> = <em>f</em><sub><em>θ</em></sub>(<em>I</em><sub><em>t</em></sub>)</span> <span class="math display"><em>h</em><sub><em>t</em></sub> = CausalAttn(<em>Q</em><sub><em>t</em></sub>,<em>K</em><sub> ≤ <em>t</em></sub>,<em>V</em><sub> ≤ <em>t</em></sub>)</span> <span class="math display">(<em>g</em><sub><em>t</em></sub>,<em>D</em><sub><em>t</em></sub>,<em>P</em><sub><em>t</em></sub>,<em>T</em><sub><em>t</em></sub>) = <em>ϕ</em><sub><em>θ</em></sub>(<em>h</em><sub><em>t</em></sub>)</span> <strong>传统 StreamVGGT 的 cache 更新：</strong> <span class="math display">𝒞<sub><em>t</em></sub> = 𝒞<sub><em>t</em> − 1</sub> ∪ {<em>K</em><sub><em>t</em></sub>, <em>V</em><sub><em>t</em></sub>}</span> 因此： <span class="math display">|𝒞<sub><em>t</em></sub>| = 𝒪(<em>t</em>)</span> <strong>InfiniteVGGT 的 bounded update：</strong></p><p><span class="math display">𝒞<sub><em>t</em></sub> = 𝒞<sub>anchor</sub> ∪ TopK(𝒞<sub>2 : <em>t</em></sub><sup>candidate</sup>;<em>s</em><sub>div</sub>)</span> VGGT-family 的 3D point map 通常被锚定到第一帧 canonical coordinate system，所以第一帧 cache 被永久保留：</p><p><span class="math display">𝒞<sub>anchor</sub> = 𝒞<sub>1</sub></span></p><p>显存状态:C_t = anchor cache + bounded candidate cache <span class="math display">$$
+\boxed{
+\mathcal O(1)\ \text{指 KV cache 显存对序列长度 }T\text{ 有界}
+}
+$$</span></p><h2 id="method">1. Method</h2><h3 id="长序列-3d-transformer-的内存问题">1.1 长序列 3D Transformer 的内存问题</h3><figure><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-02.webp" loading="lazy" decoding="async" alt="500" /><figcaption aria-hidden="true">500</figcaption></figure><p>离线多视图 Transformer 的全局注意力： <span class="math display">$$
+\mathrm{Attn}(Q,K,V)
+=
+\mathrm{softmax}
+\left(
+\frac{QK^\top}{\sqrt d}
+\right)V
+$$</span> 若每帧有 <span class="math inline"><em>n</em></span> 个 token，总帧数为 <span class="math inline"><em>T</em></span>，则：<span class="math inline"><em>Q</em>, <em>K</em>, <em>V</em> ∈ ℝ<sup>(<em>T</em><em>n</em>) × <em>d</em></sup></span></p><p>attention matrix：<span class="math inline"><em>A</em> = <em>Q</em><em>K</em><sup>⊤</sup> ∈ ℝ<sup>(<em>T</em><em>n</em>) × (<em>T</em><em>n</em>)</sup></span> ，复杂度：<span class="math inline">𝒪(<em>T</em><sup>2</sup><em>n</em><sup>2</sup><em>d</em>)</span> ，这对 endless stream 不可接受。</p><p>Streaming 后，当前帧只需要访问历史 KV，所以只需要把算出来的KV追加到历史缓存里即可： <span class="math display">$$
+\mathrm{Attn}(Q_t,K_{\leq t},V_{\leq t})
+=
+\mathrm{softmax}
+\left(
+\frac{Q_tK_{\leq t}^{\top}}{\sqrt d}
+\right)V_{\leq t}
+$$</span> KV cache 保存的是<font color="#6425d0">每一帧</font>、<font color="#ff0000">每一层</font>、<font color="#00b050">每个 attention head</font> 里已经计算好的<font color="#0070c0">每一个历史 token 的</font> <span class="math inline"><em>K</em></span> 和 <span class="math inline"><em>V</em></span> 张量。如果历史 KV 全部保留： <span class="math display"><em>K</em><sub> ≤ <em>t</em></sub> = [<em>K</em><sub>1</sub>;<em>K</em><sub>2</sub>;⋯;<em>K</em><sub><em>t</em></sub>]</span> 则 KV cache size： <span class="math display">Memory(<em>t</em>) ∝ <em>t</em> ⋅ <em>n</em> ⋅ <em>d</em> ⋅ <em>L</em></span> 其中：</p><table><thead><tr class="header"><th>符号</th><th>含义</th></tr></thead><tbody><tr class="odd"><td><span class="math inline"><em>t</em></span></td><td>当前时间步</td></tr><tr class="even"><td><span class="math inline"><em>n</em></span></td><td>每帧 token 数</td></tr><tr class="odd"><td><span class="math inline"><em>d</em></span></td><td>token/channel dimension</td></tr><tr class="even"><td><span class="math inline"><em>L</em></span></td><td>Transformer 层数</td></tr></tbody></table><p>所以 StreamVGGT 类方法的瓶颈是： <span class="math display">$$
+\boxed{
+\text{历史越长，KV cache 越大；若不剪枝，streaming 只是延迟 OOM}
+}
+$$</span> —</p><h3 id="不用-attention-score-的原因">1.2 不用 attention score 的原因</h3><p>直觉上，历史 token 的重要性可以由 attention weight 决定：<span class="math inline">$a_{t,i}=\mathrm{softmax}\left(\frac{q_t^\top k_i}{\sqrt d}\right)$</span> 然后保留高 attention token： <span class="math display">𝒞<sub><em>t</em></sub> = TopK(𝒞<sub> ≤ <em>t</em></sub>;<em>a</em><sub><em>t</em>, <em>i</em></sub>)</span> <strong>但是要知道每个历史 token 的 attention weight，就必须显式算出并保存完整 attention matrix：</strong> <span class="math display"><em>A</em><sub><em>t</em></sub> = <em>Q</em><sub><em>t</em></sub><em>K</em><sub> ≤ <em>t</em></sub><sup>⊤</sup></span> 这和 FlashAttention 的工程原则冲突。FlashAttention 的核心优势是<strong>不显式保存完整 attention matrix</strong>。它通过<strong>分块计算</strong>，一边算 softmax，一边乘 <span class="math inline"><em>V</em></span>，避免把巨大的 <span class="math inline"><em>A</em><sub><em>t</em></sub></span> 真正落到显存里。所以如果为了做 token pruning，又强行把 <span class="math inline"><em>A</em><sub><em>t</em></sub></span> materialize 出来，就等于把 FlashAttention 的优势废掉了。</p><p>InfiniteVGGT 的判断是：<strong>eviction 不能依赖显式 attention map，而应该用一个不需要展开 <span class="math inline"><em>A</em><sub><em>t</em></sub></span> 的替代指标</strong>。不问“当前帧最注意谁”，而问“历史 token 之间谁最重复、谁最有差异”，用这种 <strong>attention-independent proxy 来决定保留和删除。</strong></p><hr /><h3 id="key-space-diversity-作为-redundancy-proxy">1.3 key-space diversity 作为 redundancy proxy</h3><p>InfiniteVGGT 的经验观察：<span class="math inline">cos (<em>k</em><sub><em>t</em></sub>,<em>k</em><sub><em>t</em> − 1</sub>) ≈ 0.95+</span>，即</p><blockquote><p>[!danger] 核心 <strong>相邻帧 patch tokens 在 DINO / VGGT backbone 下高度相似。</strong> 这说明直接逐帧保留全部 KV 是冗余的。</p></blockquote><p><span class="math display">𝒞<sub><em>t</em></sub> = 𝒞<sub><em>t</em> − 1</sub> ∪ {<em>K</em><sub><em>t</em></sub>, <em>V</em><sub><em>t</em></sub>}  ⇒  大量重复 token</span> InfiniteVGGT 用 <strong>key-space diversity 来估计 token 的非冗余程度。</strong> 对每个 layer <span class="math inline"><em>l</em></span>、head <span class="math inline"><em>h</em></span>，候选 key 做 L2 normalize： <span class="math display">$$
+\hat k_i^{(l,h)}
+=
+\frac{k_i^{(l,h)}}{\|k_i^{(l,h)}\|_2}
+$$</span> 计算候选 key 均值： &gt;<span class="math inline">𝒦<sub>cand</sub><sup>(<em>l</em>,<em>h</em>)</sup></span> 是从候选 cache (<span class="math inline">𝒞<sub>cand</sub><sup>(<em>l</em>,<em>h</em>)</sup></span> )里单独取出来的候选 key 集合。</p><p><span class="math display">$$
+\mu^{(l,h)}
+=
+\frac{1}
+{
+|\mathcal K_{\mathrm{cand}}^{(l,h)}|
+}
+\sum_{\hat k_i\in \mathcal K_{\mathrm{cand}}^{(l,h)}}
+\hat k_i
+$$</span> 定义 diversity score： <span class="math display"><em>s</em><sub>div</sub><sup>(<em>l</em>,<em>h</em>)</sup>(<em>i</em>) =  − cos (<em>k̂</em><sub><em>i</em></sub><sup>(<em>l</em>,<em>h</em>)</sup>,<em>μ</em><sup>(<em>l</em>,<em>h</em>)</sup>)</span> <span class="math display">$$
+s_{\mathrm{div}}^{(l,h)}(i)
+=
+-
+\frac{
+\hat k_i^{(l,h)\top}\mu^{(l,h)}
+}
+{
+\|\mu^{(l,h)}\|_2
+}
+$$</span> <font color="#c00000">解释：如果某个 token 和均值方向很接近，说明它代表的是大量重复出现的常见信息，冗余度高，优先删除；如果某个 token 离均值方向很远，说明它特殊、不重复，可能携带新的视角、新的结构边界或少见几何信息，优先保留。</font> <span class="math display"><em>s</em><sub>div</sub> ↑  ⇒ token farther from mean ⇒ less redundant ⇒ higher retention priority ⇒ Keep</span> 最终 cache 更新： &gt;<span class="math inline">𝒞<sub>cand</sub><sup>(<em>l</em>,<em>h</em>)</sup></span> 是第 <span class="math inline"><em>l</em></span> 层、第 <span class="math inline"><em>h</em></span> 个 attention head 里等待筛选的候选 KV cache 集合，里面包含一批历史 token 对应的 <span class="math inline"><em>K</em>, <em>V</em></span>. <span class="math display">𝒞<sub><em>t</em></sub><sup>(<em>l</em>,<em>h</em>)</sup> = 𝒞<sub>anchor</sub><sup>(<em>l</em>,<em>h</em>)</sup> ∪ TopK<sub><em>B</em><sup>(<em>l</em>,<em>h</em>)</sup></sub>(𝒞<sub>cand</sub><sup>(<em>l</em>,<em>h</em>)</sup>;<em>s</em><sub>div</sub>)</span></p><p>这就是 <strong>InfiniteVGGT 的核心方法：feature-space cache selection。</strong> 不让 <span class="math inline"><em>K</em><sub> ≤ <em>t</em></sub>, <em>V</em><sub> ≤ <em>t</em></sub></span> 无限增长，而是只保留第一帧 anchor 和一部分高价值历史 token。</p><h3 id="逐层按需分配-cache-容量">1.4 逐层按需分配 cache 容量</h3><p>KV cache 的总容量是有限的，但这个容量不应该平均分给所有 Transformer 层。原因是不同层保存的信息类型不一样： - 浅层更偏局部纹理、边缘和细粒度几何； - 中层更可能负责跨视角匹配、空间对齐； - 深层更偏全局语义、相机级关系或整体场景上下文。</p><p>所以如果所有层使用相同 budget：<span class="math inline"><em>B</em><sup>(1)</sup> = <em>B</em><sup>(2)</sup> = ⋯ = <em>B</em><sup>(<em>L</em>)</sup></span>不合理。 &gt;就等于假设所有层的历史 token 都同样重要、同样冗余。 &gt;但这通常不成立。 &gt;有些层的历史 token 变化很小，大量重复，少存一点影响不大； &gt;有些层包含更丰富的几何变化，剪太狠会伤害重建质量。</p><p>InfiniteVGGT 使用 layer-wise allocation, 先给定一个总预算 <span class="math inline"><em>B</em><sub>total</sub></span>，再根据每层历史 token 的 diversity 程度分配预算： <span class="math display"><em>B</em><sup>(<em>l</em>)</sup> = <em>p</em><sup>(<em>l</em>)</sup><em>B</em><sub>total</sub></span> 其中 <span class="math inline"><em>p</em><sup>(<em>l</em>)</sup></span> 由该层的平均 diversity score <span class="math inline"><em>s̄</em><sub>div</sub><sup>(<em>l</em>)</sup></span> 通过 softmax 得到： <span class="math display">$$
+p^{(l)}
+=
+\frac{
+\exp(\bar s_{\mathrm{div}}^{(l)}/\tau)
+}
+{
+\sum_j
+\exp(\bar s_{\mathrm{div}}^{(j)}/\tau)
+}
+$$</span> 直观理解： - 如果第 <span class="math inline"><em>l</em></span> 层的历史 token 更分散、更不重复，说明这一层可能包含更多有价值的历史信息，就多分一点 cache budget； - 如果某层 token 很相似，说明冗余高，就少分一点。 - 不是严格的几何理论最优解，而是工程上合理的资源分配策略：<strong>把有限显存优先给信息密度更高的层。</strong></p><h2 id="experiments">2. Experiments</h2><h3 id="对比实验">2.1 对比实验</h3><h4 id="dr-on-rgbd-and-7-scenes">(1) 3DR on RGBD and 7-scenes</h4><p><font color="#c00000">bounded KV cache 没有明显破坏短中程几何质量，并让原本 OOM 的 VGGT-family 模型可以流式运行。</font>并且显存可控。</p><figure><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-03.webp" loading="lazy" decoding="async" alt="650" /><figcaption aria-hidden="true">650</figcaption></figure><h4 id="rgbd-3dr-对比试验">(2) RGBD-3DR 对比试验</h4><p>在输入帧数增加时，比多数 baseline 更抗长序列退化。​</p><p><strong>证明：</strong> bounded KV cache pruning 在 50–500 views 范围内能维持较好的 reconstruction stability。</p><figure><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-04.webp" loading="lazy" decoding="async" alt="400" /><figcaption aria-hidden="true">400</figcaption></figure><h4 id="long-3d-对比实验">(3) Long 3D 对比实验</h4><p>在很长 RGB stream 下，InfiniteVGGT 能持续推理，误差传播比 baseline 更受控。 <strong>证明了ACC但是没有一致性的证明，并且误差还是很高（drift）</strong>。 <img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-05.webp" loading="lazy" decoding="async" alt="650" /></p><pre class="text"><code>InfiniteVGGT:
+  - 可以处理更长 RGB stream
+  - 相比无界 KV / sliding window / compressed state baseline 更稳
+  - 仍存在长程漂移
+  - 没有证明闭环重定位能力
+  - 没有证明万帧级全局拓扑一致</code></pre><h3 id="消融实验">2.2 消融实验</h3><h4 id="pruning-消融">（1）Pruning 消融</h4><p><font color="#c00000">基于 attention score 的 token 筛选理论上更直接，但工程上不适合 streaming；key-space cosine similarity 虽然是 proxy，却更快、更省显存，而且质量没有变差。</font></p><p><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-06.webp" loading="lazy" decoding="async" alt="400" /> #### （2） Memory budget 消融</p><figure><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-07.webp" loading="lazy" decoding="async" alt="500" /><figcaption aria-hidden="true">500</figcaption></figure><p>说明 KV cache 剪枝不是没有代价。</p><p>每个 head 保留的 token budget <strong><span class="math inline"><em>B</em></span> 太小</strong>时，历史视觉几何证据会丢失，模型只能依赖较短或较稀疏的历史上下文，容易出现漂移、几何不完整、局部结构断裂： <span class="math display"><em>B</em> ↓  ⇒ historical evidence loss ↑  ⇒ geometry drift / incompleteness↑</span> 而当 <strong><span class="math inline"><em>B</em></span> 变大</strong>，历史信息保存更多，几何质量通常更好，但显存和计算也会上升： <span class="math display"><em>B</em> ↑  ⇒ more retained evidence ⇒ better geometry ⇒ higher memory / compute</span> <font color="#c00000">InfiniteVGGT 并没消除 memory-quality trade-off，只是把无界增长变为可控预算.</font></p><h4 id="layer-wise-allocation-消融">（3） Layer-wise allocation 消融</h4><figure><img src="../../assets/blog/2026-07-03-infinitevggt/attachments/figure-08.webp" loading="lazy" decoding="async" alt="400" /><figcaption aria-hidden="true">400</figcaption></figure><p>证明不同 Transformer 层不应该被一视同仁地分配 cache 容量。<font color="#c00000">不同层的历史 token 冗余度不同。</font></p><blockquote><p>[!tip] 启发 memory budget 应该根据层的信息密度自适应分配，而不是平均切块。</p></blockquote><h2 id="limitations">3. Limitations</h2><h4 id="长序列问题">（1）长序列问题</h4><p>用 <strong>固定大小的 KV cache</strong> 换长序列可运行性，但代价是历史信息不完整。 <span class="math display">|𝒞<sub><em>t</em></sub>| ≤ |𝒞<sub>anchor</sub>| + <em>B</em></span> 无论视频有多长，cache 里只保留第一帧 anchor 和最多 <span class="math inline"><em>B</em></span> 个候选历史 token，因此 KV 显存对序列长度 <span class="math inline"><em>T</em></span> 是常数级： <span class="math display">VRAM<sub><em>K</em><em>V</em></sub> = 𝒪(1)  w.r.t. <em>T</em></span> <strong>但这意味某些历史帧的 <span class="math inline"><em>K</em>, <em>V</em></span> 会被删掉，一旦删掉，模型后续无法直接访问那段历史观测。</strong> 如果相机很久以后回到旧区域，系统并没有显式 place recognition、loop closure、pose graph 或 global BA 来重新建立拓扑约束。</p><h4 id="token-保留选择">（2）token 保留选择</h4><p>真实视频中，<strong>远离均值的 token 未必是可靠几何信息</strong>，也可能是动态物体、运动模糊、反光、高光、遮挡边界、rolling shutter distortion，甚至是白墙上的深度幻觉。 这个策略高效，但不够几何鲁棒。更理想的保留分数应该把 diversity、重投影一致性、静态性、空间覆盖和不确定性结合起来。</p><h4 id="single-reference-fragility">（3）single-reference fragility</h4><p>保留第一帧 cache 可以让后续预测的 point map、depth 和 camera pose 有一个固定参考系。这比完全滚动的历史 cache 更稳定。 但如果第一帧本身质量差，比如低纹理、模糊、曝光差、动态前景遮挡、baseline 太小，那么全局坐标参考一开始就是脆弱的。后续所有几何预测都围绕这个不可靠 reference 展开，错误会被长期继承。</p><h2 id="优化">4. 优化</h2><h4 id="geometry-aware-memory-routing">（1） <strong>geometry-aware memory routing</strong></h4><p>在 InfiniteVGGT 现有 cache eviction 上替换打分函数。原方法只用 <span class="math display"><em>s</em><sub>div</sub>(<em>i</em>) =  − cos (<em>k̂</em><sub><em>i</em></sub>,<em>μ</em>)</span> 判断 token 是否“和别人不一样”，但“不一样”不等于“几何可靠”。可把 token 保留分数扩展为： $$ s_i ===</p><p>s_{,i} + s_{,i} + s_{,i} + s_{,i} - _i $$ 其中 <span class="math inline"><em>s</em><sub>repr</sub></span> 用相邻帧 depth / pose 做 reprojection consistency，<span class="math inline"><em>s</em><sub>static</sub></span> 抑制动态物体，<span class="math inline"><em>s</em><sub>coverage</sub></span> 保证空间覆盖，<span class="math inline"><em>σ</em><sub><em>i</em></sub></span> 抑制不确定 token。 只在 cache pruning 阶段增加几何验证信号，<strong>从 feature-space eviction 改成 geometry-aware eviction</strong>。预期提升动态场景、弱纹理场景、遮挡边界和长序列稳定性。</p><h4 id="topology-aware-streaming-reconstruction">（2） <strong>topology-aware streaming reconstruction</strong></h4><p>InfiniteVGGT 短板：只有 bounded neural memory，没有显式拓扑。 InfiniteVGGT 的 cache 里保存的是 token，不是 submap、loop edge 或 pose graph，所以不能真正处理 long-term revisit。 可在前端保留 InfiniteVGGT 的流式预测，同时<strong>外接一个轻量 submap memory</strong>： <span class="math display"><em>v</em><sub><em>k</em></sub> = (<em>z̄</em><sub><em>k</em></sub>,<em>P̄</em><sub><em>k</em></sub>,<em>T̄</em><sub><em>k</em></sub>,<em>Σ</em><sub><em>k</em></sub>,𝒞<sub><em>k</em></sub><sup>summary</sup>)</span> 再用 place descriptor 检索 loop candidate，用重投影残差验证： $$ r_{t,k} =</p><p><em>{u}  ( | (K_tT</em>{t,k}P_k(u))-u | ) <span class="math display"><em>验</em><em>证</em><em>通</em><em>过</em><em>后</em><em>加</em><em>入</em><em>p</em><em>o</em><em>s</em><em>e</em><em>g</em><em>r</em><em>a</em><em>p</em><em>h</em>，<em>并</em><em>异</em><em>步</em><em>优</em><em>化</em>：</span> <em>{{T_i}} </em>{(i,j)E} |  ( T_{ij}<sup>{-1}T_i</sup>{-1}T_j ) |*{}^2 $$ <strong>bounded neural memory 负责低延迟前端，explicit geometric topology 负责长程一致性和闭环纠偏</strong>。预期提升万帧级 drift、loop closure 后全局一致性、ATE / CD 的长序列退化曲线。</p>
+
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"], ["$", "$"]],
+          displayMath: [["\\[", "\\]"], ["$$", "$$"]],
+          processEscapes: true
+        },
+        options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

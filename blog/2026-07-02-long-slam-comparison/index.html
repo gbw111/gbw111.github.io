@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="长序列重建与 SLAM 2.0 方法对比笔记。" />
+    <title>Long-SLAM 与 SLAM 2.0 对比学习 | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a><a href="../../#research">方向</a><a href="../../#projects">项目</a><a href="../">博客</a><a href="../../#contact">联系</a>
+      </nav>
+    </header>
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../"><i data-lucide="arrow-left" aria-hidden="true"></i><span>返回博客</span></a>
+          <p class="eyebrow">Paper Reading · 2026-07-02</p>
+          <h1>Long-SLAM 与 SLAM 2.0 对比学习</h1>
+          <p class="article-summary">长序列重建与 SLAM 2.0 方法对比笔记。</p>
+          <figure class="article-cover">
+            <img src="../../assets/blog/2026-07-02-long-slam-comparison/attachments/figure-01.webp" alt="" decoding="async" fetchpriority="high" />
+          </figure>
+        </header>
+        <div class="article-content">
+<h3 id="后端">后端</h3><h4 id="vggt-long-轻量后端">（1）VGGT-Long – 轻量后端</h4><p><mark>chunk-level Sim(3) pose graph optimization</mark>。用同一批重叠帧的稠密 3D 点做点云配准，估计 <span class="math inline"><em>S</em><em>i</em><em>m</em>(3)</span> 约束。</p><p>把每个 chunk 看成一个整体节点，每个节点只带一个全局 <span class="math inline"><em>S</em><em>i</em><em>m</em>(3)</span> 变换：旋转、平移和尺度。相邻 chunk 之间通过 overlap 区域的点云对齐，得到一个相对 <span class="math inline"><em>S</em><em>i</em><em>m</em>(3)</span> 约束；如果检测到回环，会额外加 loop 的 <span class="math inline"><em>S</em><em>i</em><em>m</em>(3)</span> 约束。</p><p>最后用 lightweight LM 优化所有 chunk 的全局位置，让这些相邻约束和回环约束尽量一致。</p><h4 id="vggt-slam-1.0-激进后端">（2）VGGT-SLAM 1.0 – 激进后端</h4><p><mark>submap-level SL(4) factor graph optimization</mark>。相机内参未知，三维结构不一定只差一个刚体或尺度，还可能差一个更复杂的射影形变。</p><p>把视频分成 submap，每个 submap 节点是 <span class="math inline"><em>S</em><em>L</em>(4)</span> 变换。<span class="math inline"><em>S</em><em>L</em>(4)</span> 是 15 自由度的三维射影变换，能表达未知相机内参带来的 projective ambiguity。相邻 submap 共享 1 帧 overlap，系统用这帧的 dense 3D 点对应关系估计一个相对 <span class="math inline"><em>S</em><em>L</em>(4)</span> homography，然后把它作为 factor graph 的边。</p><blockquote><p>factor graph 里，每个 submap 是一个节点，边是相邻 submap 或回环 submap 之间估计出的 <span class="math inline"><em>S</em><em>L</em>(4)</span> relative homography，优化目标是让所有节点的相对关系和这些测量边一致。</p></blockquote><p>全局优化时，<strong>GTSAM</strong> 优化所有 submap 的 <span class="math inline"><em>S</em><em>L</em>(4)</span> 状态，使相邻 submap 和 loop closure 的相对 <span class="math inline"><em>S</em><em>L</em>(4)</span> 约束一致。</p><blockquote><p>优点：表达力强，适合未校准单目； 缺点：<span class="math inline"><em>S</em><em>L</em>(4)</span> 自由度太高，尤其在平面、低视差或弱约束场景下，容易把误差吸收到非物理的 projective deformation 里，<strong>导致地图整体拉伸、弯曲或漂移。</strong> #### （3）VGGT-SLAM 2.0 – 约束后端</p></blockquote><p>保留 <span class="math inline"><em>S</em><em>L</em>(4)</span> 作整体框架处理未知内参和投影模糊性，但不让每条边都自由估计完整 15-DoF 的 <span class="math inline"><em>S</em><em>L</em>(4)</span>。</p><p><strong>把图节点从 submap-level 改成 frame-level</strong>：每个 keyframe 是一个节点；同一个 submap 内的帧之间主要用刚体 <span class="math inline"><em>S</em><em>E</em>(3)</span> 风格的相对位姿约束；相邻 submap 的 overlap 帧之间则不再用重叠点云去拟合 full <span class="math inline"><em>S</em><em>L</em>(4)</span>，而是只约束同一物理帧在两个 submap 中的内参 gauge 和尺度差异。</p><blockquote><p>外壳是 <span class="math inline"><em>S</em><em>L</em>(4)</span> factor graph，但边的测量被拆成更物理、更受限的几何因子。 overlap 帧只允许修尺度和内参差异，不允许乱扭曲空间。 既保留处理未标定单目的能力，又避免<mark>1.0 中 full <span class="math inline"><em>S</em><em>L</em>(4)</span> 到处乱漂的问题（ high-dimensional drift 和 planar degeneracy）。</mark></p><p>planar degeneracy 的解释： <img src="../../assets/blog/2026-07-02-long-slam-comparison/attachments/figure-01.webp" loading="lazy" decoding="async" alt="500" /></p></blockquote><h3 id="回环">回环</h3><p><strong>Loop closure（回环闭合）</strong> 的作用是：当相机走了一圈又回到以前见过的位置时，系统要识别“这里来过”，然后用这个信息把之前累积的漂移拉回来。 VGGT 这类前馈重建把视频分成 chunk / submap 后分别前馈预测局部几何，回环闭合不是“直接拿两帧做特征匹配 + PnP + BA”，而是先找可能回环的 frame 或 submap，再把这个回环关系转化成 chunk / submap 之间的几何约束，最后放进全局图优化里校正漂移。</p><h4 id="vggt-long">（1）VGGT-Long</h4><p>轻量，核心是 <strong>image retrieval + loop chunk + Sim(3) 全局校正</strong>。</p><p>先用<font color="#c00000">图像检索</font>找到当前 chunk 和历史 chunk 中视觉上相似的位置，认为这里可能发生了回环； <span class="math inline">→</span> 围绕这两个位置重新构造一个小的 <strong>loop-centric chunk</strong> （从当前区域和历史区域各取一小段帧，拼成一个新的 VGGT 输入），让 VGGT 在同一次前馈推理中建立这两个区域的相对几何关系。 <span class="math inline">→</span> 之后系统把这个 loop chunk 分别和原来的两个历史 chunk 做点云对齐，得到一个额外的 <span class="math inline"><em>S</em><em>i</em><em>m</em>(3)</span> 回环约束。 <span class="math inline">→</span> 最后 VGGT-Long 把这个 loop 约束和相邻 chunk overlap 约束一起放进 lightweight LM 优化里，调整每个 chunk 的整体旋转、平移和尺度。</p><h4 id="vggt-slam-1.0">（2）VGGT-SLAM 1.0</h4><p>更偏 submap-level SL(4) 回环约束。</p><p>先用图像检索 descriptor，例如 <strong>SALAD</strong>，去历史 keyframe 里找和当前帧相似的图像； <span class="math inline">→</span> 如果找到候选回环帧，就<mark>把这个历史 loop frame 加到<strong>当前 submap 的 VGGT 输入</strong></mark>中，让 VGGT 同时看到当前帧和历史帧。</p><p>这样VGGT 在同一次前馈推理里就可以给出它们之间的局部几何关系，随后利用重叠帧或回环帧产生的稠密 3D 对应，估计一个相对 <span class="math inline"><em>S</em><em>L</em>(4)</span> homography，并加入 GTSAM factor graph，作为当前 submap 和历史 submap 之间的一条 loop edge。</p><p><strong>问题：</strong> <span class="math inline"><em>S</em><em>L</em>(4)</span> 自由度很高，如果回环检索错了，或者场景是大平面、低视差，错误的回环边可能会把全局地图扭曲得很严重。</p><h4 id="vggt-slam-2.0">（3）VGGT-SLAM 2.0</h4><p>对 SLAM 1.0 的稳健改造：<font color="#c00000">候选召回 + VGGT attention verification + 小型 loop submap + 受约束图优化</font>。</p><p>仍用 SALAD 从历史帧中找可能回环的位置（但不完全相信检索结果） <span class="math inline">→</span> 进一步利用 VGGT 自身 attention 层验证：如果两张图确实是同一地点或有可靠对应，attention 会有更强的跨图像匹配关系； <span class="math inline">→</span> 通过验证的候选才认为是真正回环； <span class="math inline">→</span> 构造一个只包含当前帧和历史回环帧的 <strong>2-frame loop submap</strong>，把当前 keyframe 和历史 keyframe 连接到全局 frame-level factor graph 中。（<mark>2 frame 的 <strong>small loop submap</strong></mark>）</p>
+
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"], ["$", "$"]],
+          displayMath: [["\\[", "\\]"], ["$$", "$$"]],
+          processEscapes: true
+        },
+        options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>

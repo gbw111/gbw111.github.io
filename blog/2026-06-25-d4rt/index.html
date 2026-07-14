@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="论文阅读笔记：D4RT。" />
+    <title>D4RT | Bowen</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../styles.css" />
+  </head>
+  <body>
+    <canvas id="point-cloud" aria-hidden="true"></canvas>
+    <header class="site-header">
+      <a class="brand" href="../../">Bowen</a>
+      <nav class="nav" aria-label="主要导航">
+        <a href="../../#about">关于</a><a href="../../#research">方向</a><a href="../../#projects">项目</a><a href="../">博客</a><a href="../../#contact">联系</a>
+      </nav>
+    </header>
+    <main>
+      <article class="article-shell">
+        <header class="article-header">
+          <a class="article-back" href="../"><i data-lucide="arrow-left" aria-hidden="true"></i><span>返回博客</span></a>
+          <p class="eyebrow">Paper Reading · 2026-06-25</p>
+          <h1>D4RT</h1>
+          <p class="article-summary">论文阅读笔记：D4RT。</p>
+          <figure class="article-cover">
+            <img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-01.webp" alt="" decoding="async" fetchpriority="high" />
+          </figure>
+        </header>
+        <div class="article-content">
+<h2 id="efficiently-reconstructing-dynamic-scenes-one-d4rt-at-a-time">Efficiently Reconstructing Dynamic Scenes One D4RT at a Time</h2><blockquote><p>[!tip] <strong>概览</strong> 给一段 2D 视频，模型能推理<span style="color: rgb(192, 0, 0);">任意 frame</span> 的<span style="color: rgb(0, 112, 192);">任意 pixel </span>在<span style="color: rgb(0, 176, 80);">任意 t 时刻</span>的<span style="color: rgb(255, 0, 0);">任意相机坐标系下</span>的 3D 位置。 把 4D reconstruction 规为统一的 point-<strong>query</strong> 问题，用 independent pointwise cross-attention decoder 替代 dense heads.</p></blockquote><h2 id="pipeline">0. Pipeline</h2><figure><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-01.webp" loading="lazy" decoding="async" alt="800" /><figcaption aria-hidden="true">800</figcaption></figure><p>流程可拆成两段： 1. <strong>Video Encoder</strong>：输入整段视频，经过 ViT-style video encoder 得到一个固定的 <code>Global Scene Representation</code>； 2. <strong>Pointwise Decoder</strong>：对每个 query token 独立做 cross-attention，从 global representation 中读出一个 3D point。</p><p>不一次输出所有 depth / pose / tracks，提供一个统一查询接口：问哪个点、哪个时刻、哪个相机坐标系，就返回对应的 3D 坐标。</p><h2 id="method">1. Method</h2><p>用一个视频 encoder 把整个 clip 编码成 global scene representation. 经过一个轻量的 cross attention decoder 独立查询任意 source point 在任意 target time 和 camera pose 下的 3d 坐标。</p><figure><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-02.webp" loading="lazy" decoding="async" alt="700" /><figcaption aria-hidden="true">700</figcaption></figure><p>每一个 Query 包含 <span class="math inline">(<em>u</em>,<em>v</em>,<em>t</em><sub><em>s</em><em>r</em><em>c</em></sub>,<em>t</em><sub><em>t</em><em>g</em><em>t</em></sub>,<em>t</em><sub><em>c</em><em>a</em><em>m</em></sub>)</span> 。含义是：从 source timestep 的 2D 点 <span class="math inline">(<em>u</em>,<em>v</em>)</span> 出发，查询它在 target time 的状态，并在 camera time <span class="math inline"><em>t</em><sub><em>c</em><em>a</em><em>m</em></sub></span> 的坐标系下表示。query token 由 2D 坐标 Fourier embedding、离散 timestep embedding，以及局部 RGB patch embedding 组成。</p><blockquote><p><strong>局部 RGB patch embedding</strong> <span style="color: rgb(0, 0, 0);">全局 encoder 的 token 分辨率有限，易丢失边界和细节。</span> <span style="color: rgb(0, 0, 0);">局部 patch 给 decoder 额外提供局部纹理、边缘、颜⾊等低层信息</span> <span style="color: rgb(0, 0, 0);">深度边界和动态点的对应关系更准确。</span></p></blockquote><blockquote><p>没有 pose head 怎么得到 pose？<strong>通过点的 3D 位置来推导相机之间的相对位姿。</strong> 很多组 <span class="math inline">(<em>u</em>,<em>v</em>)</span>，然后查询 <span class="math inline">(<em>u</em>,<em>v</em>,<em>i</em>,<em>i</em>,<em>i</em>)</span> 和 <span class="math inline">(<em>u</em>,<em>v</em>,<em>i</em>,<em>i</em>,<em>j</em>)</span> 这样就得到 i 帧的 pixel <span class="math inline">(<em>u</em>,<em>v</em>)</span> 在 i 帧 时刻，i 帧 pose 和 j 帧 pose 下的 3d 位置。 一组 pixel 的两个 pose 下的 3d 位置，通过刚体变换（<span style="color: rgb(0, 0, 0);">文中用 Umeyama算法</span>）就可以得到 i 帧和 j 帧之间的相对位姿关系。</p></blockquote><figure><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-03.webp" loading="lazy" decoding="async" alt="400" /><figcaption aria-hidden="true">400</figcaption></figure><figure><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-04.webp" loading="lazy" decoding="async" alt="400" /><figcaption aria-hidden="true">400</figcaption></figure><p>tracking 本身不是 reconstruction；只有 <strong>metric 3D all-pixel tracking + 统一 reference frame</strong> 才更接近完整的 4D scene reconstruction。</p><p>D4RT 的 all-pixel tracking 逻辑是：</p><ol type="1"><li>从某些未访问 pixels 出发，发起 point tracks；</li><li>对每条 track 查询它在所有 target timesteps 的 3D 位置；</li><li>将这条 track 在时空中经过且 visible 的 pixels 标记为 visited；</li><li><strong>只从未覆盖区域继续发起新 tracks；</strong></li><li>最终用尽量少的 tracks 覆盖整段视频中的可见 pixels。</li></ol><p>朴素做法要对所有 source pixels、所有 target timesteps 全部查询，复杂度接近：<span class="math inline"><em>O</em>(<em>T</em><sup>2</sup><em>H</em><em>W</em>)</span></p><p>D4RT 用 <strong>occupancy grid</strong> 利用时空冗余，带来了约 <code>5-15×</code> 的自适应加速。虽然避免了大量的重复查询，但是：</p><blockquote><p>[!danger] <strong>infere 的复杂度随查询点数量线性增长</strong> Encoder 只算一次，但 decoder 查询越多，计算越多。 如果全帧、全像素、全时间地重建，query 数量还是非常大。</p></blockquote><h2 id="experiments">2. Experiments</h2><table><colgroup><col style="width: 24%" /><col style="width: 75%" /></colgroup><thead><tr class="header"><th style="text-align: center;">项目</th><th>设置</th></tr></thead><tbody><tr class="odd"><td style="text-align: center;"><strong>Encoder</strong></td><td>ViT-g，约 1B parameters</td></tr><tr class="even"><td style="text-align: center;"><strong>Decoder</strong></td><td>8-layer cross-attention decoder，约 144M parameters</td></tr><tr class="odd"><td style="text-align: center;"><strong>Training clip</strong></td><td>48 frames</td></tr><tr class="even"><td style="text-align: center;"><strong>Resolution</strong></td><td>256 × 256</td></tr><tr class="odd"><td style="text-align: center;"><strong>Queries per clip</strong></td><td>2048 random queries，并对 depth / motion boundary 等困难区域 oversample</td></tr><tr class="even"><td style="text-align: center;"><strong>Optimizer</strong></td><td>AdamW</td></tr><tr class="odd"><td style="text-align: center;"><strong>Training steps</strong></td><td>500K</td></tr><tr class="even"><td style="text-align: center;"><strong>Hardware</strong></td><td><span style="color: rgb(0, 0, 0);">64 TPU chips</span></td></tr><tr class="odd"><td style="text-align: center;"><strong>Training time</strong></td><td>约 2 天</td></tr></tbody></table><figure><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-05.webp" loading="lazy" decoding="async" alt="700" /><figcaption aria-hidden="true">700</figcaption></figure><p><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-06.webp" loading="lazy" decoding="async" alt="700" /> <img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-07.webp" loading="lazy" decoding="async" alt="700" /></p><figure><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-08.webp" loading="lazy" decoding="async" alt="500" /><figcaption aria-hidden="true">500</figcaption></figure><h2 id="limitations">3. Limitations</h2><ul><li><strong>长序列还是没解决，依赖 GA</strong>，是一个 short-window 4D query model.</li><li>long-sequence 处理并不是真的在线全局地图系统，而是和 VGGT-long 一样：<ol type="1"><li>把长视频切成 overlapping segments；</li><li>对 overlap 区域中 confidence 最高的 85% 点；</li><li>用 Umeyama 估计 Sim(3)；</li><li>拼接 chunk；</li><li>明确省略 VGGT-Long 中的 loop detection 和 global optimization。</li></ol></li><li><strong>强依赖 local RGB patch</strong>，很多高频边界来自局部图像patch<ol type="1"><li>如果 patch 没有纹理或者弱纹理，decoder 接近 appearance-conditioned regression</li><li><img src="../../assets/blog/2026-06-25-d4rt/attachments/figure-09.webp" loading="lazy" decoding="async" title="fig:" alt="600" /></li></ol></li><li><strong>inference scales linearly with the number of points to be reconstructed</strong></li><li>计算复杂度被巧妙回避了，假如每帧要查询大量点甚至全图像素，复杂度接近 <span class="math inline"><em>O</em>(<em>T</em>·<em>H</em>·<em>W</em>)</span></li></ul><h2 id="一些思考">一些思考</h2><p>如果把全局场景表示 <span class="math inline"><em>F</em></span> 从 full-clip latent 换成 online map state / register-indexed memory / external spatial memory，可能让 D4RT 走向真正的 streaming query reconstruction 吗？</p><blockquote><p>[!example] <strong>可以做的</strong> 把 D4RT 的只从 full-clip global scene representation 查询改成：</p><p><span class="math display"><em>q</em> = (<em>u</em>,<em>v</em>,<em>t</em><sub><em>s</em><em>r</em><em>c</em></sub>,<em>t</em><sub><em>t</em><em>g</em><em>t</em></sub>,<em>t</em><sub><em>c</em><em>a</em><em>m</em></sub>)  +  <em>M</em><sub><em>t</em></sub></span></p><p>这里 <span class="math inline"><em>M</em><sub><em>t</em></sub></span> 是能在线更新的 external map / memory state。 那么 query decoder 就不只是读整段 clip latent，还能读到当前维护的长时序 spatial memory。</p></blockquote>
+
+        </div>
+      </article>
+    </main>
+    <footer class="footer">
+      <span>© 2026 Bowen</span>
+      <span>Paper Reading · 3D/4D Reconstruction</span>
+    </footer>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [["\\(", "\\)"], ["$", "$"]],
+          displayMath: [["\\[", "\\]"], ["$$", "$$"]],
+          processEscapes: true
+        },
+        options: { skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"] }
+      };
+    </script>
+    <script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <script src="../../script.js"></script>
+  </body>
+</html>
